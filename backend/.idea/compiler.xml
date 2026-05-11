@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="product-service" />
+        <module name="order-service" />
+        <module name="user-service" />
+        <module name="coupon-service" />
+        <module name="mall-common" />
+        <module name="mall-gateway" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel target="21" />
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="coupon-service" options="-J-Dfile.encoding=UTF-8" />
+      <module name="order-service" options="-J-Dfile.encoding=UTF-8" />
+      <module name="product-service" options="-J-Dfile.encoding=UTF-8" />
+      <module name="user-service" options="-J-Dfile.encoding=UTF-8" />
+    </option>
+  </component>
+</project>

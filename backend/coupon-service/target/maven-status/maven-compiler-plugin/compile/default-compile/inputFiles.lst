@@ -1,0 +1,11 @@
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\service\impl\CouponServiceImpl.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\entity\CouponTemplate.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\entity\UserCoupon.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\mapper\CouponTemplateMapper.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\satoken\StpInterfaceImpl.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\CouponServiceApplication.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\service\CouponService.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\feign\UserServiceClient.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\config\RedisConfig.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\mapper\UserCouponMapper.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\controller\CouponController.java

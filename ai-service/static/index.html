@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能购物助手 - 流式输出演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .output-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 400px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .agent-message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .agent-start {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .agent-complete {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .agent-name {
+            font-weight: 600;
+            color: #1976d2;
+            margin-bottom: 8px;
+        }
+        
+        .agent-content {
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .llm-stream {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .typing-indicator {
+            display: inline-block;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .typing-indicator::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% {
+                content: '.';
+            }
+            40% {
+                content: '..';
+            }
+            60%, 100% {
+                content: '...';
+            }
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-dot.active {
+            background: #4caf50;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-dot.inactive {
+            background: #9e9e9e;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        
+        .json-viewer {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 智能购物助手</h1>
+            <p>多智能体协作 · 流式输出 · 实时分析</p>
+        </div>
+        
+        <div class="card">
+            <h2 style="margin-bottom: 20px; color: #333;">📝 输入信息</h2>
+            
+            <div class="form-group">
+                <label>商品ID</label>
+                <input type="text" id="productId" value="1" placeholder="请输入商品ID">
+            </div>
+            
+            <div class="form-group">
+                <label>用户ID</label>
+                <input type="text" id="userId" value="1" placeholder="请输入用户ID">
+            </div>
+            
+            <div class="form-group">
+                <label>您的需求</label>
+                <textarea id="userQuery" rows="3" placeholder="请描述您的购物需求...">我想买一款性价比高的手机</textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="startStreamAnalysis()">
+                    🚀 开始流式分析
+                </button>
+                <button class="btn btn-primary" onclick="startStreamChat()">
+                    💬 开始AI对话
+                </button>
+                <button class="btn btn-secondary" onclick="clearOutput()">
+                    🗑️ 清空输出
+                </button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="status-bar">
+                <div>
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">等待开始...</span>
+                </div>
+                <div id="agentCount">智能体: 0/4</div>
+            </div>
+            
+            <h2 style="margin-bottom: 15px; color: #333;">📊 实时输出</h2>
+            
+            <div class="output-container" id="outputContainer">
+                <div style="text-align: center; color: #999; padding: 50px;">
+                    点击上方按钮开始分析...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1/ai';
+        let eventSource = null;
+        let agentCount = 0;
+        
+        function updateStatus(active, text) {
+            const dot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            dot.className = 'status-dot ' + (active ? 'active' : 'inactive');
+            statusText.textContent = text;
+        }
+        
+        function updateAgentCount(count) {
+            document.getElementById('agentCount').textContent = `智能体: ${count}/4`;
+        }
+        
+        function addMessage(type, content) {
+            const container = document.getElementById('outputContainer');
+            
+            if (container.querySelector('div[style*="text-align: center"]')) {
+                container.innerHTML = '';
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `agent-message ${type}`;
+            messageDiv.innerHTML = content;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function formatJSON(data) {
+            return JSON.stringify(data, null, 2);
+        }
+        
+        function startStreamAnalysis() {
+            const productId = document.getElementById('productId').value;
+            const userId = document.getElementById('userId').value;
+            const userQuery = document.getElementById('userQuery').value;
+            
+            clearOutput();
+            updateStatus(true, '正在连接...');
+            agentCount = 0;
+            
+            fetch(`${API_BASE}/stream/analyze`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    product_id: productId,
+                    user_id: userId,
+                    user_query: userQuery
+                })
+            })
+            .then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                function read() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) {
+                            updateStatus(false, '分析完成');
+                            return;
+                        }
+                        
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+                        
+                        lines.forEach(line => {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.substring(6));
+                                    handleStreamEvent(data);
+                                } catch (e) {
+                                    console.error('解析错误:', e);
+                                }
+                            }
+                        });
+                        
+                        return read();
+                    });
+                }
+                
+                return read();
+            })
+            .catch(error => {
+                console.error('错误:', error);
+                updateStatus(false, '连接失败');
+                addMessage('agent-complete', `<div class="agent-name">❌ 错误</div><div class="agent-content">${error.message}</div>`);
+            });
+        }
+        
+        function startStreamChat() {
+            const productId = document.getElementById('productId').value;
+            const userQuery = document.getElementById('userQuery').value;
+            
+            clearOutput();
+            updateStatus(true, '正在连接...');
+            
+            let llmContent = '';
+            
+            fetch(`${API_BASE}/stream/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    product_id: productId,
+                    user_id: '1',
+                    user_query: userQuery
+                })
+            })
+            .then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                function read() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) {
+                            updateStatus(false, '对话完成');
+                            return;
+                        }
+                        
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+                        
+                        lines.forEach(line => {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.substring(6));
+                                    
+                                    if (data.type === 'llm_chunk') {
+                                        llmContent += data.data.content;
+                                        
+                                        const existingDiv = document.getElementById('llm-stream');
+                                        if (existingDiv) {
+                                            existingDiv.querySelector('.agent-content').textContent = llmContent;
+                                        } else {
+                                            addMessage('llm-stream', 
+                                                `<div class="agent-name">🤖 AI助手</div>
+                                                 <div class="agent-content">${llmContent}</div>`
+                                            );
+                                            document.querySelector('.llm-stream').id = 'llm-stream';
+                                        }
+                                    } else {
+                                        handleStreamEvent(data);
+                                    }
+                                } catch (e) {
+                                    console.error('解析错误:', e);
+                                }
+                            }
+                        });
+                        
+                        return read();
+                    });
+                }
+                
+                return read();
+            })
+            .catch(error => {
+                console.error('错误:', error);
+                updateStatus(false, '连接失败');
+            });
+        }
+        
+        function handleStreamEvent(event) {
+            const type = event.type;
+            const data = event.data;
+            
+            switch (type) {
+                case 'start':
+                    updateStatus(true, data.message);
+                    addMessage('agent-start', `<div class="agent-name">▶️ ${data.message}</div>`);
+                    break;
+                    
+                case 'agent_start':
+                    agentCount++;
+                    updateAgentCount(agentCount);
+                    updateStatus(true, `${data.agent} 工作中...`);
+                    addMessage('agent-start', 
+                        `<div class="agent-name">🤖 ${data.agent}</div>
+                         <div class="agent-content"><span class="typing-indicator">${data.message}</span></div>`
+                    );
+                    break;
+                    
+                case 'agent_complete':
+                    updateStatus(true, `${data.agent} 完成`);
+                    addMessage('agent-complete', 
+                        `<div class="agent-name">✅ ${data.agent} - ${data.message}</div>
+                         <div class="json-viewer">${formatJSON(data.result)}</div>`
+                    );
+                    break;
+                    
+                case 'complete':
+                    updateStatus(false, '分析完成');
+                    addMessage('agent-complete', 
+                        `<div class="agent-name">🎉 分析完成</div>
+                         <div class="agent-content">总耗时: ${data.execution_time || 'N/A'}秒</div>
+                         <div class="json-viewer">${formatJSON(data)}</div>`
+                    );
+                    break;
+                    
+                case 'data':
+                    addMessage('agent-complete',
+                        `<div class="agent-name">📦 数据</div>
+                         <div class="json-viewer">${formatJSON(data.data)}</div>`
+                    );
+                    break;
+                    
+                default:
+                    console.log('未知事件:', type, data);
+            }
+        }
+        
+        function clearOutput() {
+            const container = document.getElementById('outputContainer');
+            container.innerHTML = '<div style="text-align: center; color: #999; padding: 50px;">等待分析...</div>';
+            agentCount = 0;
+            updateAgentCount(0);
+            updateStatus(false, '等待开始...');
+        }
+    </script>
+</body>
+</html>

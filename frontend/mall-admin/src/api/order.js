@@ -1,5 +1,9 @@
 import request from './request'
 
+export const getOrderStats = () => {
+  return request({ url: '/v1/orders/stats', method: 'get' })
+}
+
 export const getOrderList = (params) => {
   return request({ url: '/v1/orders', method: 'get', params })
 }

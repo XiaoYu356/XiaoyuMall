@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +43,19 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Override
+    public Map<String, Object> getProductStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("productCount", productMapper.selectCount(null));
+        stats.put("categoryCount", productCategoryMapper.selectCount(
+                new LambdaQueryWrapper<ProductCategory>().eq(ProductCategory::getStatus, 1)));
+        stats.put("onShelfCount", productMapper.selectCount(
+                new LambdaQueryWrapper<Product>().eq(Product::getStatus, 1)));
+        stats.put("offShelfCount", productMapper.selectCount(
+                new LambdaQueryWrapper<Product>().eq(Product::getStatus, 0)));
+        return stats;
+    }
 
     @Override
     public Page<ProductVO> getProductList(Long categoryId, String keyword, Integer pageNum, Integer pageSize) {

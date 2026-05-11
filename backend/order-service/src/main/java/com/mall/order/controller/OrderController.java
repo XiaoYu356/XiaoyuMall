@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -22,6 +24,13 @@ public class OrderController {
 
     @Autowired
     private OrderService orderService;
+
+    @GetMapping("/stats")
+    @Operation(summary = "订单统计")
+    public Result<Map<String, Object>> getOrderStats() {
+        Map<String, Object> stats = orderService.getOrderStats();
+        return Result.success(stats);
+    }
 
     @GetMapping
     @Operation(summary = "订单列表")

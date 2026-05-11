@@ -16,7 +16,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -26,6 +28,13 @@ public class ProductController {
 
     @Autowired
     private ProductService productService;
+
+    @GetMapping("/stats")
+    @Operation(summary = "商品统计")
+    public Result<Map<String, Object>> getProductStats() {
+        Map<String, Object> stats = productService.getProductStats();
+        return Result.success(stats);
+    }
 
     @GetMapping("/categories")
     @Operation(summary = "商品分类列表")

@@ -22,7 +22,7 @@ public class UploadController {
     @Operation(summary = "上传文件")
     public Result<String> upload(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return Result.error("上传文件不能为空");
+            return Result.failed("上传文件不能为空");
         }
         try {
             String url = minioService.uploadFile(
@@ -33,7 +33,7 @@ public class UploadController {
             return Result.success(url);
         } catch (Exception e) {
             log.error("文件上传失败: {}", e.getMessage(), e);
-            return Result.error("文件上传失败: " + e.getMessage());
+            return Result.failed("文件上传失败: " + e.getMessage());
         }
     }
 }

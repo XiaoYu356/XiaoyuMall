@@ -15,14 +15,12 @@ public class MinioConfig {
     private String accessKey;
     private String secretKey;
     private String bucketName;
-    private boolean secure;
 
     @Bean
     public MinioClient minioClient() {
-        return MinioClient.builder()
+        MinioClient.Builder builder = MinioClient.builder()
                 .endpoint(endpoint)
-                .credentials(accessKey, secretKey)
-                .secure(secure)
-                .build();
+                .credentials(accessKey, secretKey);
+        return builder.build();
     }
 }

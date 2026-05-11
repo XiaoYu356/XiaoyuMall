@@ -20,6 +20,10 @@ export const getUserInfo = (userId) => {
   return request({ url: `/v1/users/${userId}`, method: 'get' })
 }
 
+export const getUserStats = () => {
+  return request({ url: '/v1/users/stats', method: 'get' })
+}
+
 export const getUserList = (params) => {
   return request({ url: '/v1/users', method: 'get', params })
 }

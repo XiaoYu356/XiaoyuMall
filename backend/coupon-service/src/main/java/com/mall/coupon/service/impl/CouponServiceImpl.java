@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,6 +40,18 @@ public class CouponServiceImpl implements CouponService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Override
+    public Map<String, Object> getCouponStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("templateCount", couponTemplateMapper.selectCount(null));
+        stats.put("receivedCount", userCouponMapper.selectCount(null));
+        stats.put("usedCount", userCouponMapper.selectCount(
+                new LambdaQueryWrapper<UserCoupon>().eq(UserCoupon::getStatus, 1)));
+        stats.put("unusedCount", userCouponMapper.selectCount(
+                new LambdaQueryWrapper<UserCoupon>().eq(UserCoupon::getStatus, 0)));
+        return stats;
+    }
 
     @Override
     public Page<CouponTemplate> getCouponTemplateList(Integer pageNum, Integer pageSize) {
@@ -121,10 +134,13 @@ public class CouponServiceImpl implements CouponService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteCouponTemplate(Long templateId) {
-        CouponTemplate template = new CouponTemplate();
-        template.setId(templateId);
-        template.setStatus(0);
-        couponTemplateMapper.updateById(template);
+        LambdaQueryWrapper<UserCoupon> ucWrapper = new LambdaQueryWrapper<>();
+        ucWrapper.eq(UserCoupon::getTemplateId, templateId);
+        Long receivedCount = userCouponMapper.selectCount(ucWrapper);
+        if (receivedCount > 0) {
+            throw new BusinessException("该优惠券已被用户领取，无法删除，请改为禁用");
+        }
+        couponTemplateMapper.deleteById(templateId);
         log.info("优惠券模板删除成功: {}", templateId);
     }
 

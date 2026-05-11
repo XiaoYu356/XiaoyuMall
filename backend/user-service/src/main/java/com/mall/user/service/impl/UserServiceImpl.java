@@ -23,17 +23,31 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 public class UserServiceImpl implements UserService {
-    
-    private static final Long DEFAULT_ROLE_ID = 3L;
-    private static final String DEFAULT_PASSWORD = "123456";
-    
+
     @Autowired
     private UserMapper userMapper;
+
+    @Override
+    public Map<String, Object> getUserStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("userCount", userMapper.selectCount(null));
+        stats.put("activeCount", userMapper.selectCount(
+                new LambdaQueryWrapper<User>().eq(User::getStatus, 1)));
+        stats.put("disabledCount", userMapper.selectCount(
+                new LambdaQueryWrapper<User>().eq(User::getStatus, 0)));
+        return stats;
+    }
+
+    private static final Long DEFAULT_ROLE_ID = 3L;
+    private static final String DEFAULT_PASSWORD = "123456";
+
     
     @Autowired
     private UserRoleMapper userRoleMapper;

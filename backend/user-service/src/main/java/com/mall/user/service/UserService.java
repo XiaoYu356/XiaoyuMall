@@ -7,8 +7,12 @@ import com.mall.user.dto.UserQueryDTO;
 import com.mall.user.dto.UserRegisterDTO;
 import com.mall.user.entity.User;
 
+import java.util.Map;
+
 public interface UserService {
-    
+
+    Map<String, Object> getUserStats();
+
     User register(UserRegisterDTO dto);
 
     User createUser(UserCreateDTO dto);

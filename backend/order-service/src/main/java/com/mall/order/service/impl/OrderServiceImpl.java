@@ -23,7 +23,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -38,6 +40,31 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private ProductServiceClient productServiceClient;
+
+    @Override
+    public Map<String, Object> getOrderStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("orderCount", orderMapper.selectCount(null));
+        stats.put("pendingCount", orderMapper.selectCount(
+                new LambdaQueryWrapper<Order>().eq(Order::getStatus, 0)));
+        stats.put("paidCount", orderMapper.selectCount(
+                new LambdaQueryWrapper<Order>().eq(Order::getStatus, 1)));
+        stats.put("shippedCount", orderMapper.selectCount(
+                new LambdaQueryWrapper<Order>().eq(Order::getStatus, 2)));
+        stats.put("completedCount", orderMapper.selectCount(
+                new LambdaQueryWrapper<Order>().eq(Order::getStatus, 3)));
+        stats.put("cancelledCount", orderMapper.selectCount(
+                new LambdaQueryWrapper<Order>().eq(Order::getStatus, 4)));
+
+        List<Order> paidOrders = orderMapper.selectList(
+                new LambdaQueryWrapper<Order>().in(Order::getStatus, 1, 2, 3));
+        BigDecimal totalAmount = paidOrders.stream()
+                .map(Order::getTotalAmount)
+                .filter(a -> a != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        stats.put("totalAmount", totalAmount);
+        return stats;
+    }
 
     @Autowired
     private CouponServiceClient couponServiceClient;

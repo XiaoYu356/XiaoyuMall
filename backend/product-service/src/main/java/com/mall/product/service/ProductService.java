@@ -9,8 +9,11 @@ import com.mall.product.entity.ProductSku;
 import com.mall.product.entity.ProductVO;
 
 import java.util.List;
+import java.util.Map;
 
 public interface ProductService {
+
+    Map<String, Object> getProductStats();
 
     Page<ProductVO> getProductList(Long categoryId, String keyword, Integer pageNum, Integer pageSize);
 

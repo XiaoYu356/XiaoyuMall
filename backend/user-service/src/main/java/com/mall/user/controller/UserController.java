@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -37,6 +38,13 @@ public class UserController {
 
     @Autowired
     private RoleMapper roleMapper;
+
+    @GetMapping("/stats")
+    @Operation(summary = "用户统计")
+    public Result<Map<String, Object>> getUserStats() {
+        Map<String, Object> stats = userService.getUserStats();
+        return Result.success(stats);
+    }
     
     @PostMapping("/register")
     @Operation(summary = "用户注册")

@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -25,6 +26,13 @@ public class CouponController {
     
     @Autowired
     private CouponService couponService;
+
+    @GetMapping("/stats")
+    @Operation(summary = "优惠券统计")
+    public Result<Map<String, Object>> getCouponStats() {
+        Map<String, Object> stats = couponService.getCouponStats();
+        return Result.success(stats);
+    }
     
     @GetMapping
     @Operation(summary = "优惠券模板列表")

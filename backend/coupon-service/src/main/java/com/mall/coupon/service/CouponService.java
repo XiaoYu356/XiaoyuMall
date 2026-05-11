@@ -7,9 +7,12 @@ import com.mall.coupon.entity.UserCoupon;
 import com.mall.coupon.entity.UserCouponVO;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 public interface CouponService {
-    
+
+    Map<String, Object> getCouponStats();
+
     Page<CouponTemplate> getCouponTemplateList(Integer pageNum, Integer pageSize);
     
     Page<AvailableCouponVO> getAvailableCouponList(Long userId, Integer pageNum, Integer pageSize);

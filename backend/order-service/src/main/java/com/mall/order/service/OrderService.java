@@ -4,7 +4,11 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.mall.order.dto.CreateOrderDTO;
 import com.mall.order.entity.Order;
 
+import java.util.Map;
+
 public interface OrderService {
+
+    Map<String, Object> getOrderStats();
 
     Page<Order> getOrderList(Long userId, Integer status, String orderNo, Integer pageNum, Integer pageSize);
 

@@ -20,6 +20,10 @@ export const deleteCategory = (categoryId) => {
   return request({ url: `/v1/products/categories/${categoryId}`, method: 'delete' })
 }
 
+export const getProductStats = () => {
+  return request({ url: '/v1/products/stats', method: 'get' })
+}
+
 export const getProductList = (params) => {
   return request({ url: '/v1/products', method: 'get', params })
 }

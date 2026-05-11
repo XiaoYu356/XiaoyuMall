@@ -1,5 +1,9 @@
 import request from './request'
 
+export const getCouponStats = () => {
+  return request({ url: '/v1/coupons/stats', method: 'get' })
+}
+
 export const getCouponList = (params) => {
   return request({ url: '/v1/coupons', method: 'get', params })
 }

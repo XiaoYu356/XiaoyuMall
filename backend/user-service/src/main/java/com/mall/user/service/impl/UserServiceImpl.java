@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -82,7 +83,7 @@ public class UserServiceImpl implements UserService {
         UserRole userRole = new UserRole();
         userRole.setUserId(user.getId());
         userRole.setRoleId(DEFAULT_ROLE_ID);
-        userRole.setCreateTime(LocalDateTime.now());
+        userRole.setCreateTime(LocalDateTime.now(ZoneId.of("Asia/Shanghai")));
         userRoleMapper.insert(userRole);
         
         log.info("用户注册成功: {}", user.getUsername());
@@ -114,7 +115,7 @@ public class UserServiceImpl implements UserService {
         UserRole userRole = new UserRole();
         userRole.setUserId(user.getId());
         userRole.setRoleId(DEFAULT_ROLE_ID);
-        userRole.setCreateTime(LocalDateTime.now());
+        userRole.setCreateTime(LocalDateTime.now(ZoneId.of("Asia/Shanghai")));
         userRoleMapper.insert(userRole);
 
         log.info("管理员创建用户成功: {}", user.getUsername());

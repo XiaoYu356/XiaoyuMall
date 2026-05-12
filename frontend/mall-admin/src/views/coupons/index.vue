@@ -35,9 +35,13 @@
         <el-table-column prop="usedCount" label="已使用" width="120" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
+            <el-switch
+              v-model="row.status"
+              :active-value="1"
+              :inactive-value="0"
+              v-permission="'coupon:edit'"
+              @change="handleStatusChange(row)"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
@@ -112,7 +116,7 @@
           <el-input-number v-model="couponForm.totalCount" :min="1" />
         </el-form-item>
         <el-form-item label="每人限领">
-          <el-input-number v-model="couponForm.perLimit" :min="1" />
+          <span>1张</span>
         </el-form-item>
         <el-form-item label="有效期" prop="dateRange">
           <el-date-picker
@@ -161,7 +165,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCouponList, createCoupon, updateCoupon, deleteCoupon } from '@/api/coupon'
-import { formatDateTime as formatDateTimeUtil } from '@/utils/time'
+import { formatDateTime as formatDateTimeUtil, parseTime } from '@/utils/time'
 
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -222,6 +226,15 @@ const fetchCouponList = async () => {
   }
 }
 
+const handleStatusChange = async (row) => {
+  try {
+    await updateCoupon({ id: row.id, status: row.status })
+    ElMessage.success(row.status === 1 ? '启用成功' : '禁用成功')
+  } catch (error) {
+    row.status = row.status === 1 ? 0 : 1
+  }
+}
+
 const handleDetail = (row) => {
   detailData.value = { ...row }
   detailVisible.value = true
@@ -246,7 +259,7 @@ const handleEdit = (row) => {
   dialogTitle.value = '编辑优惠券'
   Object.assign(couponForm, {
     ...row,
-    dateRange: row.startTime && row.endTime ? [row.startTime, row.endTime] : []
+    dateRange: row.startTime && row.endTime ? [parseTime(row.startTime), parseTime(row.endTime)] : []
   })
   dialogVisible.value = true
 }

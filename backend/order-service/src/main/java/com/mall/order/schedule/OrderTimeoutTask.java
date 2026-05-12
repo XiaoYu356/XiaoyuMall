@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Slf4j
@@ -37,7 +38,7 @@ public class OrderTimeoutTask {
 
     @Scheduled(fixedDelay = 60000)
     public void cancelTimeoutOrders() {
-        LocalDateTime timeoutThreshold = LocalDateTime.now().minusMinutes(timeoutMinutes);
+        LocalDateTime timeoutThreshold = LocalDateTime.now(ZoneId.of("Asia/Shanghai")).minusMinutes(timeoutMinutes);
 
         LambdaQueryWrapper<Order> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Order::getStatus, 0)

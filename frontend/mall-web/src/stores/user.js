@@ -6,6 +6,8 @@ import { ElMessage } from 'element-plus'
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
   const userInfo = ref(null)
+  const permissions = ref([])
+  const roles = ref([])
 
   const isLoggedIn = computed(() => !!token.value)
 
@@ -28,7 +30,10 @@ export const useUserStore = defineStore('user', () => {
     if (!token.value) return
     try {
       const res = await userApi.getUserInfo()
-      userInfo.value = res.data
+      const data = res.data
+      userInfo.value = data.user
+      permissions.value = data.permissions || []
+      roles.value = data.roles || []
     } catch (e) {
       logout()
     }
@@ -37,6 +42,8 @@ export const useUserStore = defineStore('user', () => {
   function logout() {
     token.value = ''
     userInfo.value = null
+    permissions.value = []
+    roles.value = []
     localStorage.removeItem('token')
   }
 
@@ -49,6 +56,8 @@ export const useUserStore = defineStore('user', () => {
   return {
     token,
     userInfo,
+    permissions,
+    roles,
     isLoggedIn,
     login,
     register,

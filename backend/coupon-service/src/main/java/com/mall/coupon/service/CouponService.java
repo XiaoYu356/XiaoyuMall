@@ -30,4 +30,6 @@ public interface CouponService {
     boolean useCoupon(Long couponId, Long orderId);
     
     Page<UserCouponVO> getUserCouponList(Long userId, Integer status, Integer pageNum, Integer pageSize);
+
+    void syncCouponStockToRedis();
 }

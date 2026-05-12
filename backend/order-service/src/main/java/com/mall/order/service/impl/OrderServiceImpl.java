@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -199,7 +200,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(1);
-        order.setPaymentTime(LocalDateTime.now());
+        order.setPaymentTime(LocalDateTime.now(ZoneId.of("Asia/Shanghai")));
         orderMapper.updateById(order);
 
         if (order.getCouponId() != null) {
@@ -226,7 +227,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(2);
-        order.setDeliveryTime(LocalDateTime.now());
+        order.setDeliveryTime(LocalDateTime.now(ZoneId.of("Asia/Shanghai")));
         orderMapper.updateById(order);
 
         log.info("订单发货成功: {}", order.getOrderNo());
@@ -295,7 +296,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(3);
-        order.setReceiveTime(LocalDateTime.now());
+        order.setReceiveTime(LocalDateTime.now(ZoneId.of("Asia/Shanghai")));
         orderMapper.updateById(order);
 
         log.info("订单确认收货成功: {}", order.getOrderNo());
@@ -309,7 +310,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private String generateOrderNo() {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        String timestamp = LocalDateTime.now(ZoneId.of("Asia/Shanghai")).format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         String random = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
         return "ORD" + timestamp + random;
     }

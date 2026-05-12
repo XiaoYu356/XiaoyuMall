@@ -221,6 +221,7 @@ CREATE TABLE IF NOT EXISTS `user_coupon` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_coupon_code` (`coupon_code`),
+  UNIQUE KEY `uk_user_template` (`user_id`, `template_id`),
   KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户优惠券表';
 
@@ -539,7 +540,7 @@ USE mall_coupon;
 INSERT IGNORE INTO `coupon_template` (`id`, `template_name`, `coupon_type`, `coupon_value`, `min_amount`, `total_count`, `used_count`, `per_limit`, `start_time`, `end_time`, `status`) VALUES
 (1, '新人满200减50', 1, 50.00, 200.00, 10000, 156, 1, '2025-01-01 00:00:00', '2026-12-31 23:59:59', 1),
 (2, '数码满5000减300', 1, 300.00, 5000.00, 5000, 89, 1, '2025-01-01 00:00:00', '2026-12-31 23:59:59', 1),
-(3, '全场9折券', 2, 9.00, 0.00, 5000, 234, 2, '2025-01-01 00:00:00', '2026-12-31 23:59:59', 1),
+(3, '全场9折券', 2, 9.00, 0.00, 5000, 234, 1, '2025-01-01 00:00:00', '2026-12-31 23:59:59', 1),
 (4, '满1000减100', 1, 100.00, 1000.00, 2000, 412, 1, '2025-06-01 00:00:00', '2026-06-30 23:59:59', 1),
 (5, '新人现金券10元', 3, 10.00, 0.00, 20000, 1024, 1, '2025-01-01 00:00:00', '2026-12-31 23:59:59', 1);
 

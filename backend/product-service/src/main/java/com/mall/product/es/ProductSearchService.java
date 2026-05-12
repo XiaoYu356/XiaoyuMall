@@ -30,6 +30,7 @@ import com.mall.product.entity.ProductVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -38,6 +39,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +53,18 @@ public class ProductSearchService {
     private static final String HOT_SEARCH_KEY = "search:hot";
     private static final String SEARCH_HISTORY_PREFIX = "search:history:";
     private static final int MAX_HISTORY_SIZE = 10;
+
+    private static final String RECORD_HISTORY_SCRIPT =
+            "local key = KEYS[1] " +
+            "local keyword = ARGV[1] " +
+            "local maxSize = tonumber(ARGV[2]) " +
+            "redis.call('lrem', key, 0, keyword) " +
+            "redis.call('lpush', key, keyword) " +
+            "while redis.call('llen', key) > maxSize do " +
+            "  redis.call('rpop', key) " +
+            "end " +
+            "redis.call('expire', key, 2592000) " +
+            "return 1";
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     @Autowired
@@ -420,13 +434,8 @@ public class ProductSearchService {
         if (userId != null) {
             try {
                 String historyKey = SEARCH_HISTORY_PREFIX + userId;
-                redisTemplate.opsForList().remove(historyKey, 0, keyword);
-                redisTemplate.opsForList().leftPush(historyKey, keyword);
-                Long size = redisTemplate.opsForList().size(historyKey);
-                if (size != null && size > MAX_HISTORY_SIZE) {
-                    redisTemplate.opsForList().rightPop(historyKey);
-                }
-                redisTemplate.expire(historyKey, 30, TimeUnit.DAYS);
+                DefaultRedisScript<Long> script = new DefaultRedisScript<>(RECORD_HISTORY_SCRIPT, Long.class);
+                redisTemplate.execute(script, Collections.singletonList(historyKey), keyword, String.valueOf(MAX_HISTORY_SIZE));
             } catch (Exception e) {
                 log.warn("记录搜索历史失败", e);
             }

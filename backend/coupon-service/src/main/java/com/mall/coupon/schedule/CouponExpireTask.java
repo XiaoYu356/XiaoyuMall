@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Slf4j
 @Component
@@ -21,7 +22,7 @@ public class CouponExpireTask {
     public void expireCoupons() {
         LambdaUpdateWrapper<UserCoupon> wrapper = new LambdaUpdateWrapper<>();
         wrapper.eq(UserCoupon::getStatus, 0)
-               .lt(UserCoupon::getExpireTime, LocalDateTime.now())
+               .lt(UserCoupon::getExpireTime, LocalDateTime.now(ZoneId.of("Asia/Shanghai")))
                .set(UserCoupon::getStatus, 2);
         int count = userCouponMapper.update(null, wrapper);
         if (count > 0) {

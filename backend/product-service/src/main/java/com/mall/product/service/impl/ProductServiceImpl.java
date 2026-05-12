@@ -327,49 +327,41 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deductStock(Long skuId, Integer quantity) {
-        ProductSku sku = productSkuMapper.selectById(skuId);
-        if (sku == null) {
-            throw new BusinessException("商品SKU不存在");
-        }
-
-        if (sku.getStock() < quantity) {
+        int rows = productSkuMapper.deductStockCas(skuId, quantity);
+        if (rows == 0) {
             throw new BusinessException("库存不足");
         }
 
-        sku.setStock(sku.getStock() - quantity);
-        int rows = productSkuMapper.updateById(sku);
-
-        if (rows > 0) {
-            String stockKey = RedisConstant.PRODUCT_STOCK_KEY + skuId;
+        String stockKey = RedisConstant.PRODUCT_STOCK_KEY + skuId;
+        try {
             redisTemplate.opsForValue().decrement(stockKey, quantity);
-            log.info("库存扣减成功: skuId={}, quantity={}", skuId, quantity);
-            syncProductToEs(sku.getProductId());
-            return true;
+        } catch (Exception e) {
+            log.warn("Redis库存扣减失败，将在下次读取时补偿: skuId={}", skuId, e);
         }
 
-        return false;
+        log.info("库存扣减成功: skuId={}, quantity={}", skuId, quantity);
+        syncProductToEs(productSkuMapper.selectById(skuId).getProductId());
+        return true;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean addStock(Long skuId, Integer quantity) {
-        ProductSku sku = productSkuMapper.selectById(skuId);
-        if (sku == null) {
+        int rows = productSkuMapper.addStockCas(skuId, quantity);
+        if (rows == 0) {
             throw new BusinessException("商品SKU不存在");
         }
 
-        sku.setStock(sku.getStock() + quantity);
-        int rows = productSkuMapper.updateById(sku);
-
-        if (rows > 0) {
-            String stockKey = RedisConstant.PRODUCT_STOCK_KEY + skuId;
+        String stockKey = RedisConstant.PRODUCT_STOCK_KEY + skuId;
+        try {
             redisTemplate.opsForValue().increment(stockKey, quantity);
-            log.info("库存增加成功: skuId={}, quantity={}", skuId, quantity);
-            syncProductToEs(sku.getProductId());
-            return true;
+        } catch (Exception e) {
+            log.warn("Redis库存增加失败，将在下次读取时补偿: skuId={}", skuId, e);
         }
 
-        return false;
+        log.info("库存增加成功: skuId={}, quantity={}", skuId, quantity);
+        syncProductToEs(productSkuMapper.selectById(skuId).getProductId());
+        return true;
     }
 
     @Override

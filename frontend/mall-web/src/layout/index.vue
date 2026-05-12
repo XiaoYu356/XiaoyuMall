@@ -66,7 +66,7 @@
           
           <el-dropdown v-if="isLoggedIn" @command="handleCommand">
             <el-button :icon="User">
-              {{ userInfo.nickname || '用户' }}
+              {{ userStore.userInfo?.nickname || '用户' }}
               <el-icon class="el-icon--right"><ArrowDown /></el-icon>
             </el-button>
             <template #dropdown>
@@ -105,8 +105,10 @@ import { Search, ShoppingCart, Document, User, ArrowDown, Shop, Ticket, MagicSti
 import { getCartList } from '@/api/cart'
 import { getOrderList } from '@/api/order'
 import { searchSuggest, getSearchHistory, clearSearchHistory } from '@/api/product'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const searchKeyword = ref('')
 const cartCount = ref(0)
@@ -117,15 +119,7 @@ const historyList = ref([])
 
 let suggestTimer = null
 
-const isLoggedIn = computed(() => !!localStorage.getItem('token'))
-const userInfo = ref({})
-
-const loadUserInfo = () => {
-  const savedUserInfo = localStorage.getItem('userInfo')
-  if (savedUserInfo) {
-    userInfo.value = JSON.parse(savedUserInfo)
-  }
-}
+const isLoggedIn = computed(() => userStore.isLoggedIn)
 
 const fetchCartCount = async () => {
   if (!isLoggedIn.value) return
@@ -207,8 +201,7 @@ const handleClearHistory = async () => {
 
 const handleCommand = (command) => {
   if (command === 'logout') {
-    localStorage.removeItem('token')
-    localStorage.removeItem('userInfo')
+    userStore.logout()
     ElMessage.success('退出成功')
     router.push('/')
   } else {
@@ -217,7 +210,9 @@ const handleCommand = (command) => {
 }
 
 onMounted(() => {
-  loadUserInfo()
+  if (userStore.isLoggedIn && !userStore.userInfo) {
+    userStore.fetchUserInfo()
+  }
   fetchCartCount()
   fetchOrderCount()
   fetchHistory()

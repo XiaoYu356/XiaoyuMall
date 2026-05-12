@@ -1,5 +1,6 @@
 export const parseTime = (time) => {
   if (!time) return null
+  if (time instanceof Date) return time
   return new Date(time.replace(/ /g, 'T'))
 }
 

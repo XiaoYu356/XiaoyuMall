@@ -3,11 +3,13 @@ package com.mall.product.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.mall.product.dto.CategoryCreateDTO;
 import com.mall.product.dto.ProductCreateDTO;
+import com.mall.product.entity.Brand;
 import com.mall.product.entity.Product;
 import com.mall.product.entity.ProductCategory;
 import com.mall.product.entity.ProductSku;
 import com.mall.product.entity.ProductVO;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -17,7 +19,11 @@ public interface ProductService {
 
     Page<ProductVO> getProductList(Long categoryId, String keyword, Integer pageNum, Integer pageSize);
 
-    Product getProductById(Long productId);
+    Page<ProductVO> getProductList(Long categoryId, String keyword, BigDecimal minPrice,
+                                    BigDecimal maxPrice, Long brandId, String sortBy,
+                                    Integer pageNum, Integer pageSize);
+
+    ProductVO getProductById(Long productId);
 
     Product createProduct(ProductCreateDTO dto);
 
@@ -28,6 +34,12 @@ public interface ProductService {
     boolean deductStock(Long skuId, Integer quantity);
 
     boolean addStock(Long skuId, Integer quantity);
+
+    boolean incrementSales(Long productId, Integer quantity);
+
+    boolean decrementSales(Long productId, Integer quantity);
+
+    List<Brand> getBrandList();
 
     List<ProductCategory> getCategoryList();
 

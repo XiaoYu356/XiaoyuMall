@@ -1,5 +1,6 @@
 package com.mall.coupon.controller;
 
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -84,6 +85,7 @@ public class CouponController {
     
     @PostMapping("/receive/{templateId}")
     @Operation(summary = "领取优惠券")
+    @SaCheckLogin
     public Result<UserCoupon> receiveCoupon(@PathVariable Long templateId) {
         Long userId = StpUtil.getLoginIdAsLong();
         UserCoupon userCoupon = couponService.receiveCoupon(userId, templateId);
@@ -92,6 +94,7 @@ public class CouponController {
     
     @GetMapping("/mine")
     @Operation(summary = "我的优惠券列表")
+    @SaCheckLogin
     public Result<Page<UserCouponVO>> getMyCoupons(
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "1") Integer pageNum,

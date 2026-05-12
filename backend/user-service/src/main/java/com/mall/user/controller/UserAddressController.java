@@ -1,5 +1,6 @@
 package com.mall.user.controller;
 
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mall.common.result.Result;
 import com.mall.user.entity.UserAddress;
@@ -15,6 +16,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/users/addresses")
+@SaCheckLogin
 @Tag(name = "收货地址管理", description = "用户收货地址增删改查接口")
 public class UserAddressController {
 

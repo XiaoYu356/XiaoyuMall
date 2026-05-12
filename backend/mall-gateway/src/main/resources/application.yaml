@@ -4,9 +4,6 @@ server:
 spring:
   application:
     name: mall-gateway
-  autoconfigure:
-    exclude:
-      - cn.dev33.satoken.reactor.spring.SaTokenReactorAutoConfiguration
   cloud:
     nacos:
       discovery:

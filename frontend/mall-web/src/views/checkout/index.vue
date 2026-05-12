@@ -187,6 +187,7 @@ import { CircleCheck, Picture, Close } from '@element-plus/icons-vue'
 import { createOrder } from '@/api/order'
 import { getAddressList, addAddress } from '@/api/user'
 import { getMyCoupons, calculateDiscount } from '@/api/coupon'
+import { deleteCartBatch } from '@/api/cart'
 
 const router = useRouter()
 
@@ -363,6 +364,15 @@ const submitOrder = async () => {
     }
 
     await createOrder(orderData)
+
+    const cartIds = checkoutItems.value.map(item => item.id).filter(id => id)
+    if (cartIds.length > 0) {
+      try {
+        await deleteCartBatch(cartIds)
+      } catch (e) {
+        console.error('删除购物车项失败:', e)
+      }
+    }
 
     localStorage.removeItem('checkoutItems')
     ElMessage.success('订单创建成功')

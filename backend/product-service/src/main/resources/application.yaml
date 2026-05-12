@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: product-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.elasticsearch.ReactiveElasticsearchClientAutoConfiguration
   cloud:
     nacos:
       discovery:
@@ -57,6 +62,12 @@ minio:
   secret-key: admin123456
   bucket-name: mall-products
   secure: false
+
+elasticsearch:
+  host: localhost
+  port: 9201
+  username: 
+  password: 
 
 logging:
   level:

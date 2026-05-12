@@ -7,6 +7,7 @@ services:
     environment:
       - MODE=standalone
       - PREFER_HOST_MODE=hostname
+      - TZ=Asia/Shanghai
     ports:
       - "8848:8848"
       - "9848:9848"
@@ -19,6 +20,8 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=root
       - MYSQL_DATABASE=mall_user
+      - TZ=Asia/Shanghai
+    command: --default-time-zone=+08:00
     ports:
       - "3306:3306"
     volumes:
@@ -72,6 +75,36 @@ services:
     networks:
       - mall-network
 
+  elasticsearch:
+    image: elasticsearch:8.11.3
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m -Duser.timezone=Asia/Shanghai
+      - TZ=Asia/Shanghai
+    ports:
+      - "9201:9200"
+      - "9300:9300"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+      - ./es-plugins:/usr/share/elasticsearch/plugins
+    networks:
+      - mall-network
+
+  kibana:
+    image: kibana:8.11.3
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "8601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - mall-network
+
   # ai-service:
   #   build:
   #     context: ../ai-service
@@ -98,6 +131,7 @@ services:
 volumes:
   mysql-data:
   minio-data:
+  es-data:
 
 networks:
   mall-network:

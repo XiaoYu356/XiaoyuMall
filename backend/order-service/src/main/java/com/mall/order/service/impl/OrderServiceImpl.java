@@ -1,6 +1,7 @@
 package com.mall.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.mall.common.exception.BusinessException;
 import com.mall.common.result.Result;
@@ -150,6 +151,11 @@ public class OrderServiceImpl implements OrderService {
             if (stockResult == null || !Boolean.TRUE.equals(stockResult.getData())) {
                 throw new BusinessException("库存扣减失败, skuId=" + itemDTO.getSkuId());
             }
+
+            Result<Boolean> salesResult = productServiceClient.incrementSales(itemDTO.getProductId(), itemDTO.getQuantity());
+            if (salesResult == null || !Boolean.TRUE.equals(salesResult.getData())) {
+                log.warn("商品销量更新失败, productId={}, quantity={}", itemDTO.getProductId(), itemDTO.getQuantity());
+            }
         }
 
         order.setTotalAmount(totalAmount);
@@ -239,15 +245,36 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("只能取消待支付的订单");
         }
 
-        order.setStatus(4);
-        orderMapper.updateById(order);
+        LambdaUpdateWrapper<Order> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Order::getId, orderId)
+                    .eq(Order::getStatus, 0)
+                    .set(Order::getStatus, 4);
+
+        int rows = orderMapper.update(null, updateWrapper);
+        if (rows == 0) {
+            throw new BusinessException("订单状态已变更，取消失败");
+        }
 
         List<OrderItem> items = getOrderItems(orderId);
         for (OrderItem item : items) {
+            boolean success = false;
+            for (int i = 0; i < 3; i++) {
+                try {
+                    productServiceClient.addStock(item.getSkuId(), item.getQuantity());
+                    success = true;
+                    break;
+                } catch (Exception e) {
+                    log.warn("库存回滚第{}次失败, skuId={}, quantity={}", i + 1, item.getSkuId(), item.getQuantity(), e);
+                }
+            }
+            if (!success) {
+                log.error("库存回滚最终失败, skuId={}, quantity={}, 需人工处理", item.getSkuId(), item.getQuantity());
+            }
+
             try {
-                productServiceClient.addStock(item.getSkuId(), item.getQuantity());
+                productServiceClient.decrementSales(item.getProductId(), item.getQuantity());
             } catch (Exception e) {
-                log.error("库存回滚失败, skuId={}, quantity={}", item.getSkuId(), item.getQuantity(), e);
+                log.warn("销量回滚失败, productId={}, quantity={}", item.getProductId(), item.getQuantity(), e);
             }
         }
 

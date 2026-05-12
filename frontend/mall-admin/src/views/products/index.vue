@@ -16,14 +16,15 @@
           <el-input v-model="searchForm.keyword" placeholder="请输入商品名称" clearable />
         </el-form-item>
         <el-form-item label="分类">
-          <el-select v-model="searchForm.categoryId" placeholder="请选择分类" clearable>
-            <el-option
-              v-for="category in categoryList"
-              :key="category.id"
-              :label="category.categoryName"
-              :value="category.id"
-            />
-          </el-select>
+          <el-tree-select
+            v-model="searchForm.categoryId"
+            :data="categoryTreeOptions"
+            :props="{ label: 'categoryName', value: 'id', children: 'children' }"
+            placeholder="请选择分类"
+            clearable
+            check-strictly
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">搜索</el-button>
@@ -49,6 +50,11 @@
             <span style="color: #F56C6C">¥{{ row.price }}</span>
           </template>
         </el-table-column>
+        <el-table-column prop="brandName" label="品牌" width="120">
+          <template #default="{ row }">
+            <span>{{ row.brandName || '-' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="sales" label="销量" width="100" />
         <el-table-column prop="totalStock" label="库存" width="100">
           <template #default="{ row }">
@@ -65,8 +71,15 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" fixed="right" width="250">
+        <el-table-column label="操作" fixed="right" width="300">
           <template #default="{ row }">
+            <el-button
+              type="info"
+              size="small"
+              @click="handleDetail(row)"
+            >
+              详情
+            </el-button>
             <el-button
               type="primary"
               size="small"
@@ -124,13 +137,21 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="分类" prop="categoryId">
-              <el-select v-model="productForm.categoryId" placeholder="请选择分类" style="width: 100%">
-                <el-option
-                  v-for="category in categoryList"
-                  :key="category.id"
-                  :label="category.categoryName"
-                  :value="category.id"
-                />
+              <el-tree-select
+                v-model="productForm.categoryId"
+                :data="categoryTreeOptions"
+                :props="{ label: 'categoryName', value: 'id', children: 'children' }"
+                placeholder="请选择分类"
+                clearable
+                check-strictly
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="品牌">
+              <el-select v-model="productForm.brandId" placeholder="请选择品牌" clearable style="width: 100%">
+                <el-option v-for="brand in brandList" :key="brand.id" :label="brand.brandName" :value="brand.id" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -201,9 +222,9 @@
             </el-button>
           </div>
 
-          <div v-if="generatedSkuList.length > 0" class="sku-table-section">
+          <div v-if="editableSkuList.length > 0" class="sku-table-section">
             <div class="sku-table-header">
-              <h4>SKU 列表（共 {{ generatedSkuList.length }} 项）</h4>
+              <h4>SKU 列表（共 {{ editableSkuList.length }} 项）</h4>
               <div class="batch-set">
                 <span class="batch-label">批量设置：</span>
                 <el-input-number v-model="batchPrice" :min="0" :precision="2" size="small" placeholder="价格" style="width: 120px" />
@@ -211,7 +232,7 @@
                 <el-button type="primary" size="small" @click="applyBatchSet">应用</el-button>
               </div>
             </div>
-            <el-table :data="generatedSkuList" border size="small" max-height="400">
+            <el-table :data="editableSkuList" border size="small" max-height="400">
               <el-table-column type="index" label="#" width="50" />
               <el-table-column
                 v-for="spec in specList"
@@ -287,15 +308,86 @@
             </el-table-column>
           </el-table>
         </div>
-
-        <el-form-item label="排序" style="margin-top: 16px">
-          <el-input-number v-model="productForm.sort" :min="0" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleSubmit">确定</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="detailVisible" title="商品详情" width="800px" top="5vh">
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="商品名称" :span="2">{{ detailData.productName }}</el-descriptions-item>
+        <el-descriptions-item label="商品编码">{{ detailData.productCode }}</el-descriptions-item>
+        <el-descriptions-item label="分类">{{ detailData.categoryName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="品牌">{{ detailData.brandName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="销售价">
+          <span style="color: #F56C6C; font-weight: bold">¥{{ detailData.price }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag :type="detailData.status === 1 ? 'success' : 'danger'">
+            {{ detailData.status === 1 ? '上架' : '下架' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="销量">{{ detailData.sales || 0 }}</el-descriptions-item>
+        <el-descriptions-item label="库存">
+          <span :style="{ color: (detailData.totalStock || 0) <= 10 ? '#F56C6C' : '#67C23A' }">
+            {{ detailData.totalStock || 0 }}
+          </span>
+        </el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ detailData.createTime }}</el-descriptions-item>
+        <el-descriptions-item label="更新时间">{{ detailData.updateTime || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="商品主图" :span="2">
+          <el-image
+            v-if="detailData.mainImage"
+            :src="detailData.mainImage"
+            fit="cover"
+            style="width: 200px; height: 200px; border-radius: 6px"
+            :preview-src-list="[detailData.mainImage]"
+          />
+          <span v-else>暂无图片</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="商品描述" :span="2">{{ detailData.description || '-' }}</el-descriptions-item>
+      </el-descriptions>
+
+      <el-divider content-position="left">SKU 信息</el-divider>
+      <el-empty v-if="detailSkuList.length === 0" description="暂无SKU数据" :image-size="60" />
+      <el-table v-else :data="detailSkuList" border size="small">
+        <el-table-column type="index" label="#" width="50" />
+        <el-table-column prop="skuName" label="SKU名称" min-width="160" />
+        <el-table-column label="图片" width="90">
+          <template #default="{ row }">
+            <el-image
+              v-if="row.image"
+              :src="row.image"
+              fit="cover"
+              style="width: 50px; height: 50px; border-radius: 4px"
+              :preview-src-list="[row.image]"
+            />
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="price" label="价格" width="120">
+          <template #default="{ row }">
+            <span style="color: #F56C6C">¥{{ row.price }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="stock" label="库存" width="100">
+          <template #default="{ row }">
+            <span :style="{ color: row.stock <= 10 ? '#F56C6C' : '#67C23A' }">{{ row.stock }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="规格" min-width="150">
+          <template #default="{ row }">
+            <template v-if="row.specsObj">
+              <el-tag v-for="(val, key) in row.specsObj" :key="key" size="small" style="margin-right: 4px">
+                {{ key }}: {{ val }}
+              </el-tag>
+            </template>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-dialog>
   </div>
 </template>
@@ -304,13 +396,17 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
-import { getCategoryList, getProductList, createProduct, updateProduct, deleteProduct, getProductSkus, uploadFile } from '@/api/product'
+import { getCategoryList, getBrandList, getProductList, getProductById, createProduct, updateProduct, deleteProduct, getProductSkus, uploadFile } from '@/api/product'
 
 const loading = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
+const detailVisible = ref(false)
+const detailData = ref({})
+const detailSkuList = ref([])
 const productList = ref([])
 const categoryList = ref([])
+const brandList = ref([])
 const productFormRef = ref(null)
 const editSkuList = ref([])
 const uploading = ref(false)
@@ -331,6 +427,7 @@ const productForm = reactive({
   productName: '',
   productCode: '',
   categoryId: null,
+  brandId: null,
   price: 0,
   mainImage: '',
   description: '',
@@ -341,6 +438,7 @@ const productForm = reactive({
 const specList = ref([])
 const batchPrice = ref(null)
 const batchStock = ref(null)
+const editableSkuList = ref([])
 
 const doUpload = async (file) => {
   const formData = new FormData()
@@ -375,16 +473,21 @@ const handleSkuImageUpload = async (row, options) => {
 }
 
 const applyBatchSet = () => {
-  generatedSkuList.value.forEach(sku => {
+  if (batchPrice.value == null && batchStock.value == null) {
+    ElMessage.warning('请输入要批量设置的价格或库存')
+    return
+  }
+  editableSkuList.value.forEach(sku => {
     if (batchPrice.value != null) sku.price = batchPrice.value
     if (batchStock.value != null) sku.stock = batchStock.value
   })
   updateProductPrice()
+  ElMessage.success('批量设置成功')
 }
 
 const updateProductPrice = () => {
-  if (generatedSkuList.value.length > 0) {
-    const prices = generatedSkuList.value.map(s => s.price).filter(p => p > 0)
+  if (editableSkuList.value.length > 0) {
+    const prices = editableSkuList.value.map(s => s.price).filter(p => p > 0)
     if (prices.length > 0) {
       productForm.price = Math.min(...prices)
     }
@@ -465,9 +568,32 @@ const generatedSkuList = computed(() => {
   })
 })
 
-watch(generatedSkuList, () => {
+watch(generatedSkuList, (newList) => {
+  if (newList.length > 0) {
+    editableSkuList.value = newList.map(sku => ({ ...sku }))
+  } else {
+    editableSkuList.value = []
+  }
   updateProductPrice()
 }, { deep: true })
+
+const categoryTreeOptions = computed(() => {
+  const list = categoryList.value.filter(c => c.status === 1)
+  const map = {}
+  const roots = []
+  list.forEach(c => {
+    map[c.id] = { ...c, children: [] }
+  })
+  list.forEach(c => {
+    const node = map[c.id]
+    if (c.parentId && map[c.parentId]) {
+      map[c.parentId].children.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+  return roots
+})
 
 const fetchCategoryList = async () => {
   try {
@@ -475,6 +601,15 @@ const fetchCategoryList = async () => {
     categoryList.value = res.data || []
   } catch (error) {
     console.error('获取分类列表失败:', error)
+  }
+}
+
+const fetchBrandList = async () => {
+  try {
+    const res = await getBrandList()
+    brandList.value = res.data || []
+  } catch (error) {
+    console.error('获取品牌列表失败:', error)
   }
 }
 
@@ -513,6 +648,7 @@ const handleAdd = () => {
     productName: '',
     productCode: '',
     categoryId: null,
+    brandId: null,
     price: 0,
     mainImage: '',
     description: '',
@@ -542,6 +678,41 @@ const handleEdit = async (row) => {
   }
 
   dialogVisible.value = true
+}
+
+const getCategoryPath = (categoryId) => {
+  const parts = []
+  let current = categoryList.value.find(c => c.id === categoryId)
+  while (current) {
+    parts.unshift(current.categoryName)
+    current = current.parentId
+      ? categoryList.value.find(c => c.id === current.parentId)
+      : null
+  }
+  return parts.length > 0 ? parts.join(' > ') : '-'
+}
+
+const handleDetail = async (row) => {
+  try {
+    const res = await getProductById(row.id)
+    const product = res.data || {}
+    detailData.value = {
+      ...product,
+      categoryName: getCategoryPath(product.categoryId)
+    }
+
+    const skuRes = await getProductSkus(row.id)
+    const skus = skuRes.data || []
+    detailSkuList.value = skus.map(sku => ({
+      ...sku,
+      specsObj: sku.specs ? JSON.parse(sku.specs) : null
+    }))
+
+    detailVisible.value = true
+  } catch (error) {
+    console.error('获取商品详情失败:', error)
+    ElMessage.error('获取商品详情失败')
+  }
 }
 
 const handleDelete = (row) => {
@@ -577,8 +748,8 @@ const handleSubmit = async () => {
         ElMessage.success('更新成功')
       } else {
         const data = { ...productForm }
-        if (generatedSkuList.value.length > 0) {
-          data.skuList = generatedSkuList.value
+        if (editableSkuList.value.length > 0) {
+          data.skuList = editableSkuList.value
         }
         await createProduct(data)
         ElMessage.success('添加成功')
@@ -603,6 +774,7 @@ const handleCurrentChange = (val) => {
 
 onMounted(() => {
   fetchCategoryList()
+  fetchBrandList()
   fetchProductList()
 })
 </script>

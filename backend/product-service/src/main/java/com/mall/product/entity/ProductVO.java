@@ -10,4 +10,6 @@ import java.math.BigDecimal;
 public class ProductVO extends Product {
 
     private Integer totalStock;
+
+    private String brandName;
 }

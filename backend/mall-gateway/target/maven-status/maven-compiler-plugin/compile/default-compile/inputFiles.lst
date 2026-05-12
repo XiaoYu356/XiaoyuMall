@@ -1,3 +1,3 @@
-D:\code\XiaoyuMall\backend\mall-gateway\src\main\java\com\mall\gateway\filter\SaTokenForwardFilter.java
 D:\code\XiaoyuMall\backend\mall-gateway\src\main\java\com\mall\gateway\filter\CorsFilter.java
+D:\code\XiaoyuMall\backend\mall-gateway\src\main\java\com\mall\gateway\filter\AuthFilter.java
 D:\code\XiaoyuMall\backend\mall-gateway\src\main\java\com\mall\gateway\GatewayApplication.java

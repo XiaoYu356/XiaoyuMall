@@ -57,15 +57,19 @@ onMounted(() => {
 
 const fetchOrders = async () => {
   try {
-    const res = await getOrderList({})
+    const params = {}
+    if (activeTab.value !== 'all') {
+      params.status = parseInt(activeTab.value)
+    }
+    const res = await getOrderList(params)
     orders.value = res.data?.records || []
   } catch (error) {
     console.error('获取订单失败:', error)
   }
 }
 
-const handleTabChange = (tab) => {
-  console.log('切换标签:', tab)
+const handleTabChange = () => {
+  fetchOrders()
 }
 
 const getStatusText = (status) => {

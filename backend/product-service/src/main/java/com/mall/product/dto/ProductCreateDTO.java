@@ -10,6 +10,7 @@ import java.util.Map;
 public class ProductCreateDTO {
     private String productName;
     private Long categoryId;
+    private Long brandId;
     private String productCode;
     private BigDecimal price;
     private BigDecimal originalPrice;

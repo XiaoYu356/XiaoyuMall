@@ -1,5 +1,6 @@
 package com.mall.order.controller;
 
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -19,6 +20,7 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/orders")
+@SaCheckLogin
 @Tag(name = "订单管理", description = "订单创建、支付、发货等接口")
 public class OrderController {
 

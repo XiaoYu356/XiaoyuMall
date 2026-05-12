@@ -167,6 +167,7 @@ import { User, Location, Ticket } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { updateUserInfo, getAddressList, addAddress, deleteAddress as deleteAddressApi, setDefaultAddress as setDefaultAddressApi } from '@/api/user'
 import { getMyCoupons } from '@/api/coupon'
+import { formatDate as formatDateUtil } from '@/utils/time'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -251,9 +252,7 @@ const getCouponColor = (coupon) => {
 }
 
 const formatDate = (time) => {
-  if (!time) return ''
-  const d = new Date(time)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return formatDateUtil(time)
 }
 
 const handleLogout = () => {

@@ -44,5 +44,9 @@ sa-token:
   token-style: uuid
   is-log: false
 
+order:
+  timeout-minutes: 15
+  stock-retry-times: 3
+
 knife4j:
   enable: true

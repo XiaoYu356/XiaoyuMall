@@ -4,6 +4,10 @@ export const uploadFile = (formData) => {
   return request({ url: '/v1/upload', method: 'post', data: formData, headers: { 'Content-Type': 'multipart/form-data' } })
 }
 
+export const getBrandList = () => {
+  return request({ url: '/v1/products/brands', method: 'get' })
+}
+
 export const getCategoryList = () => {
   return request({ url: '/v1/products/categories', method: 'get' })
 }

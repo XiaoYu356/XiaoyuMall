@@ -22,4 +22,10 @@ public interface ProductServiceClient {
 
     @PostMapping("/api/v1/products/{skuId}/add-stock")
     Result<Boolean> addStock(@PathVariable("skuId") Long skuId, @RequestParam("quantity") Integer quantity);
+
+    @PostMapping("/api/v1/products/{productId}/increment-sales")
+    Result<Boolean> incrementSales(@PathVariable("productId") Long productId, @RequestParam("quantity") Integer quantity);
+
+    @PostMapping("/api/v1/products/{productId}/decrement-sales")
+    Result<Boolean> decrementSales(@PathVariable("productId") Long productId, @RequestParam("quantity") Integer quantity);
 }

@@ -1,5 +1,6 @@
 package com.mall.order.controller;
 
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.mall.common.result.Result;
 import com.mall.order.dto.AddCartDTO;
@@ -17,6 +18,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/cart")
+@SaCheckLogin
 @Tag(name = "购物车管理", description = "购物车相关接口")
 public class CartController {
     

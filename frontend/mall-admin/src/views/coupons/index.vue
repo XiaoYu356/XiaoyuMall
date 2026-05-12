@@ -41,8 +41,15 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" fixed="right" width="200">
+        <el-table-column label="操作" fixed="right" width="250">
           <template #default="{ row }">
+            <el-button
+              type="info"
+              size="small"
+              @click="handleDetail(row)"
+            >
+              详情
+            </el-button>
             <el-tooltip :content="canEdit(row) ? '' : '已发放的优惠券不可编辑'" placement="top" :disabled="canEdit(row)">
               <el-button
                 type="primary"
@@ -122,6 +129,31 @@
         <el-button type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="detailVisible" title="优惠券详情" width="600px">
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="优惠券名称" :span="2">{{ detailData.templateName }}</el-descriptions-item>
+        <el-descriptions-item label="类型">
+          <el-tag :type="getTypeColor(detailData.couponType)">{{ getTypeName(detailData.couponType) }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag :type="detailData.status === 1 ? 'success' : 'danger'">
+            {{ detailData.status === 1 ? '启用' : '禁用' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="优惠值">
+          {{ detailData.couponType === 2 ? detailData.couponValue + '折' : '¥' + detailData.couponValue }}
+        </el-descriptions-item>
+        <el-descriptions-item label="最低消费">¥{{ detailData.minAmount }}</el-descriptions-item>
+        <el-descriptions-item label="发行总量">{{ detailData.totalCount }}</el-descriptions-item>
+        <el-descriptions-item label="已领取">{{ detailData.totalCount - (detailData.remainCount ?? detailData.totalCount) }}</el-descriptions-item>
+        <el-descriptions-item label="已使用">{{ detailData.usedCount }}</el-descriptions-item>
+        <el-descriptions-item label="每人限领">{{ detailData.perLimit }}张</el-descriptions-item>
+        <el-descriptions-item label="生效时间" :span="2">{{ detailData.startTime }}</el-descriptions-item>
+        <el-descriptions-item label="过期时间" :span="2">{{ detailData.endTime }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间" :span="2">{{ detailData.createTime }}</el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
   </div>
 </template>
 
@@ -129,9 +161,12 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCouponList, createCoupon, updateCoupon, deleteCoupon } from '@/api/coupon'
+import { formatDateTime as formatDateTimeUtil } from '@/utils/time'
 
 const loading = ref(false)
 const dialogVisible = ref(false)
+const detailVisible = ref(false)
+const detailData = ref({})
 const dialogTitle = ref('')
 const couponList = ref([])
 const couponFormRef = ref(null)
@@ -187,6 +222,11 @@ const fetchCouponList = async () => {
   }
 }
 
+const handleDetail = (row) => {
+  detailData.value = { ...row }
+  detailVisible.value = true
+}
+
 const handleAdd = () => {
   dialogTitle.value = '添加优惠券'
   Object.assign(couponForm, {
@@ -222,10 +262,7 @@ const handleDelete = (row) => {
 }
 
 const formatDateTime = (date) => {
-  if (!date) return null
-  const d = new Date(date)
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  return formatDateTimeUtil(date)
 }
 
 const handleSubmit = async () => {

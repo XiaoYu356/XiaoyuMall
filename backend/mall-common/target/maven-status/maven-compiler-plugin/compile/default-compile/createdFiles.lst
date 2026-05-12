@@ -1,9 +1,0 @@
-com\mall\common\constant\ServiceConstant.class
-com\mall\common\result\Result.class
-com\mall\common\dto\AIAnalysisRequest.class
-com\mall\common\exception\BusinessException.class
-com\mall\common\dto\AIAnalysisResponse.class
-com\mall\common\constant\RedisConstant.class
-com\mall\common\result\ResultCode.class
-com\mall\common\entity\BaseEntity.class
-com\mall\common\exception\GlobalExceptionHandler.class

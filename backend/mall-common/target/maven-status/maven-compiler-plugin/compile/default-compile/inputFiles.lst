@@ -1,6 +1,7 @@
 D:\code\XiaoyuMall\backend\mall-common\src\main\java\com\mall\common\constant\ServiceConstant.java
 D:\code\XiaoyuMall\backend\mall-common\src\main\java\com\mall\common\dto\AIAnalysisResponse.java
 D:\code\XiaoyuMall\backend\mall-common\src\main\java\com\mall\common\entity\BaseEntity.java
+D:\code\XiaoyuMall\backend\mall-common\src\main\java\com\mall\common\config\TimeZoneConfig.java
 D:\code\XiaoyuMall\backend\mall-common\src\main\java\com\mall\common\result\Result.java
 D:\code\XiaoyuMall\backend\mall-common\src\main\java\com\mall\common\result\ResultCode.java
 D:\code\XiaoyuMall\backend\mall-common\src\main\java\com\mall\common\constant\RedisConstant.java

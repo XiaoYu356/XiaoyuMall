@@ -46,13 +46,13 @@ const routes = [
         path: 'coupons',
         name: 'Coupons',
         component: () => import('@/views/coupons/index.vue'),
-        meta: { title: '优惠券秒杀' }
+        meta: { title: '优惠券秒杀', requiresAuth: true }
       },
       {
         path: 'ai-assistant',
         name: 'AIAssistant',
         component: () => import('@/views/ai-assistant/index.vue'),
-        meta: { title: 'AI智能助手' }
+        meta: { title: 'AI智能助手', requiresAuth: true }
       },
       {
         path: 'user',

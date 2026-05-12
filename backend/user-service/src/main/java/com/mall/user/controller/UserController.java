@@ -1,5 +1,6 @@
 package com.mall.user.controller;
 
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
@@ -72,6 +73,7 @@ public class UserController {
     
     @GetMapping("/info")
     @Operation(summary = "获取当前登录用户信息")
+    @SaCheckLogin
     public Result<UserInfoVO> getCurrentUserInfo() {
         Long userId = StpUtil.getLoginIdAsLong();
         User user = userService.getUserById(userId);

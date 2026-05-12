@@ -78,6 +78,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getAvailableCoupons, receiveCoupon } from '@/api/coupon'
+import { parseTime } from '@/utils/time'
 
 const loading = ref(false)
 const couponList = ref([])
@@ -112,8 +113,8 @@ const canReceive = (coupon) => {
   if (coupon.usedCount >= coupon.totalCount) return false
   if (coupon.userReceivedCount >= (coupon.perLimit || 1)) return false
   const now = new Date()
-  const start = new Date(coupon.startTime)
-  const end = new Date(coupon.endTime)
+  const start = parseTime(coupon.startTime)
+  const end = parseTime(coupon.endTime)
   if (now < start || now > end) return false
   return true
 }
@@ -122,8 +123,8 @@ const getReceiveBtnText = (coupon) => {
   if (coupon.usedCount >= coupon.totalCount) return '已抢光'
   if (coupon.status !== 1) return '已结束'
   const now = new Date()
-  const start = new Date(coupon.startTime)
-  const end = new Date(coupon.endTime)
+  const start = parseTime(coupon.startTime)
+  const end = parseTime(coupon.endTime)
   if (now < start) return '未开始'
   if (now > end) return '已过期'
   if (coupon.userReceivedCount >= (coupon.perLimit || 1)) return '已领取'
@@ -132,7 +133,7 @@ const getReceiveBtnText = (coupon) => {
 
 const formatTime = (time) => {
   if (!time) return ''
-  const d = new Date(time)
+  const d = parseTime(time)
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
@@ -154,9 +155,9 @@ const updateNextStart = () => {
   const now = new Date()
   let nearest = null
   for (const coupon of couponList.value) {
-    const start = new Date(coupon.startTime)
+    const start = parseTime(coupon.startTime)
     if (start > now && coupon.usedCount < coupon.totalCount) {
-      if (!nearest || start < new Date(nearest.startTime)) {
+      if (!nearest || start < parseTime(nearest.startTime)) {
         nearest = coupon
       }
     }
@@ -187,7 +188,7 @@ const handleReceive = async (coupon) => {
 
 const updateCountdown = () => {
   if (!nextStartTime.value) return
-  const diff = new Date(nextStartTime.value) - new Date()
+  const diff = parseTime(nextStartTime.value) - new Date()
   if (diff <= 0) {
     countdownText.value = '开抢中！'
     nextStartTime.value = null

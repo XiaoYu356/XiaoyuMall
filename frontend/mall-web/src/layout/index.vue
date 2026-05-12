@@ -11,12 +11,45 @@
           <el-input
             v-model="searchKeyword"
             placeholder="搜索商品..."
+            size="large"
             @keyup.enter="handleSearch"
+            @input="handleSuggestInput"
+            @focus="showSuggest = true"
+            @blur="hideSuggest"
           >
             <template #append>
               <el-button :icon="Search" @click="handleSearch" />
             </template>
           </el-input>
+          <div v-if="showSuggest && (suggestList.length > 0 || historyList.length > 0)" class="header-suggest-panel">
+            <div v-if="suggestList.length > 0" class="suggest-group">
+              <div class="suggest-title">搜索建议</div>
+              <div
+                v-for="item in suggestList"
+                :key="item"
+                class="suggest-item"
+                @mousedown.prevent="selectSuggestion(item)"
+              >
+                <el-icon><Search /></el-icon>
+                <span>{{ item }}</span>
+              </div>
+            </div>
+            <div v-if="suggestList.length === 0 && historyList.length > 0" class="suggest-group">
+              <div class="suggest-title">
+                历史查询
+                <el-icon class="clear-btn" @mousedown.prevent="handleClearHistory"><Delete /></el-icon>
+              </div>
+              <div class="suggest-tags">
+                <el-tag
+                  v-for="item in historyList"
+                  :key="item"
+                  size="small"
+                  class="hot-tag"
+                  @mousedown.prevent="selectSuggestion(item)"
+                >{{ item }}</el-tag>
+              </div>
+            </div>
+          </div>
         </div>
         
         <div class="nav-actions">
@@ -68,15 +101,21 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, ShoppingCart, Document, User, ArrowDown, Shop, Ticket, MagicStick } from '@element-plus/icons-vue'
+import { Search, ShoppingCart, Document, User, ArrowDown, Shop, Ticket, MagicStick, Delete } from '@element-plus/icons-vue'
 import { getCartList } from '@/api/cart'
 import { getOrderList } from '@/api/order'
+import { searchSuggest, getSearchHistory, clearSearchHistory } from '@/api/product'
 
 const router = useRouter()
 
 const searchKeyword = ref('')
 const cartCount = ref(0)
 const orderCount = ref(0)
+const showSuggest = ref(false)
+const suggestList = ref([])
+const historyList = ref([])
+
+let suggestTimer = null
 
 const isLoggedIn = computed(() => !!localStorage.getItem('token'))
 const userInfo = ref({})
@@ -111,9 +150,58 @@ const fetchOrderCount = async () => {
   }
 }
 
+const handleSuggestInput = (val) => {
+  if (suggestTimer) clearTimeout(suggestTimer)
+  if (!val || val.length < 1) {
+    suggestList.value = []
+    return
+  }
+  suggestTimer = setTimeout(async () => {
+    try {
+      const res = await searchSuggest(val)
+      suggestList.value = res.data || []
+    } catch (error) {
+      suggestList.value = []
+    }
+  }, 300)
+}
+
+const selectSuggestion = (item) => {
+  searchKeyword.value = item
+  showSuggest.value = false
+  suggestList.value = []
+  handleSearch()
+}
+
+const hideSuggest = () => {
+  setTimeout(() => {
+    showSuggest.value = false
+    suggestList.value = []
+  }, 200)
+}
+
 const handleSearch = () => {
   if (searchKeyword.value) {
     router.push({ path: '/products', query: { keyword: searchKeyword.value } })
+    fetchHistory()
+  }
+}
+
+const fetchHistory = async () => {
+  try {
+    const res = await getSearchHistory()
+    historyList.value = res.data || []
+  } catch (error) {
+    historyList.value = []
+  }
+}
+
+const handleClearHistory = async () => {
+  try {
+    await clearSearchHistory()
+    historyList.value = []
+  } catch (error) {
+    console.error('清除搜索历史失败:', error)
   }
 }
 
@@ -132,6 +220,7 @@ onMounted(() => {
   loadUserInfo()
   fetchCartCount()
   fetchOrderCount()
+  fetchHistory()
 })
 </script>
 
@@ -176,6 +265,77 @@ onMounted(() => {
   flex: 1;
   max-width: 500px;
   margin: 0 40px;
+  position: relative;
+}
+
+.header-suggest-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 200;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.suggest-group {
+  padding: 10px 15px;
+}
+
+.suggest-title {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.clear-btn {
+  cursor: pointer;
+  color: #999;
+}
+
+.clear-btn:hover {
+  color: #F56C6C;
+}
+
+.suggest-item {
+  padding: 6px 0;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #333;
+}
+
+.suggest-item:hover {
+  color: #409EFF;
+}
+
+.suggest-item :deep(.el-icon) {
+  color: #999;
+  font-size: 12px;
+}
+
+.suggest-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hot-tag {
+  cursor: pointer;
+}
+
+.hot-tag:hover {
+  opacity: 0.8;
 }
 
 .nav-actions {

@@ -12,6 +12,34 @@
     </div>
     
     <div class="container">
+      <section class="section category-section">
+        <div class="section-header">
+          <h2>📂 商品分类</h2>
+        </div>
+        <div class="category-grid">
+          <div
+            v-for="category in categoryTree.slice(0, 8)"
+            :key="category.id"
+            class="category-card"
+            @click="goToCategory(category.id)"
+          >
+            <div class="category-icon">
+              <el-icon :size="32"><component :is="category.icon || 'Goods'" /></el-icon>
+            </div>
+            <span class="category-name">{{ category.categoryName }}</span>
+            <div v-if="category.children && category.children.length" class="category-children">
+              <span
+                v-for="child in category.children.slice(0, 4)"
+                :key="child.id"
+                class="category-child"
+                @click.stop="goToCategory(child.id)"
+              >{{ child.categoryName }}</span>
+              <span v-if="category.children.length > 4" class="category-more">更多...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="section coupon-section">
         <div class="section-header">
           <h2>🎟️ 限时抢券</h2>
@@ -56,7 +84,7 @@
             @click="goToDetail(product.id)"
           >
             <div class="product-image">
-              <el-image :src="product.image" fit="cover">
+              <el-image :src="product.mainImage" fit="cover">
                 <template #error>
                   <div class="image-placeholder">
                     <el-icon :size="60"><Picture /></el-icon>
@@ -73,7 +101,7 @@
                   ¥{{ product.originalPrice }}
                 </span>
               </div>
-              <div class="product-sales">已售 {{ product.sales }} 件</div>
+              <div class="product-sales">已售 {{ product.sales || 0 }} 件</div>
             </div>
           </div>
         </div>
@@ -93,7 +121,7 @@
           >
             <div class="product-image">
               <el-tag class="new-tag" type="danger">新品</el-tag>
-              <el-image :src="product.image" fit="cover">
+              <el-image :src="product.mainImage" fit="cover">
                 <template #error>
                   <div class="image-placeholder">
                     <el-icon :size="60"><Picture /></el-icon>
@@ -115,10 +143,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Picture } from '@element-plus/icons-vue'
-import { getProductList } from '@/api/product'
+import { Picture, Goods } from '@element-plus/icons-vue'
+import { getProductList, getCategories } from '@/api/product'
 
 const router = useRouter()
 
@@ -128,21 +156,48 @@ const banners = ref([
   { id: 3, title: '会员专享，更多福利', desc: '注册会员，享受专属优惠', color: '#E6A23C' }
 ])
 
+const categoryList = ref([])
 const hotProducts = ref([])
 const newProducts = ref([])
 
+const categoryTree = computed(() => {
+  const list = categoryList.value
+  const map = {}
+  const roots = []
+  list.forEach(c => {
+    map[c.id] = { ...c, children: [] }
+  })
+  list.forEach(c => {
+    const node = map[c.id]
+    if (c.parentId && map[c.parentId]) {
+      map[c.parentId].children.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+  return roots
+})
+
 onMounted(async () => {
   try {
-    const res = await getProductList({ pageNum: 1, pageSize: 8 })
-    hotProducts.value = res.data?.records || []
+    const [productRes, categoryRes] = await Promise.all([
+      getProductList({ pageNum: 1, pageSize: 8 }),
+      getCategories()
+    ])
+    hotProducts.value = productRes.data?.records || []
     newProducts.value = hotProducts.value.slice(0, 4)
+    categoryList.value = categoryRes.data || []
   } catch (error) {
-    console.error('获取商品失败:', error)
+    console.error('获取数据失败:', error)
   }
 })
 
 const goToDetail = (id) => {
   router.push(`/product/${id}`)
+}
+
+const goToCategory = (categoryId) => {
+  router.push(`/products?categoryId=${categoryId}`)
 }
 </script>
 
@@ -189,6 +244,104 @@ const goToDetail = (id) => {
 .section-header h2 {
   font-size: 24px;
   color: #333;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 16px;
+}
+
+.category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 10px;
+  background: white;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.category-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.category-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #409EFF, #66b1ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin-bottom: 10px;
+}
+
+.category-card:nth-child(2) .category-icon {
+  background: linear-gradient(135deg, #67C23A, #85ce61);
+}
+
+.category-card:nth-child(3) .category-icon {
+  background: linear-gradient(135deg, #E6A23C, #ebb563);
+}
+
+.category-card:nth-child(4) .category-icon {
+  background: linear-gradient(135deg, #F56C6C, #f78989);
+}
+
+.category-card:nth-child(5) .category-icon {
+  background: linear-gradient(135deg, #909399, #a6a9ad);
+}
+
+.category-card:nth-child(6) .category-icon {
+  background: linear-gradient(135deg, #9b59b6, #b07cc6);
+}
+
+.category-card:nth-child(7) .category-icon {
+  background: linear-gradient(135deg, #3498db, #5dade2);
+}
+
+.category-card:nth-child(8) .category-icon {
+  background: linear-gradient(135deg, #1abc9c, #48c9b0);
+}
+
+.category-name {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.category-children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.category-child {
+  font-size: 12px;
+  color: #666;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #f5f7fa;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.category-child:hover {
+  background: #409EFF;
+  color: white;
+}
+
+.category-more {
+  font-size: 12px;
+  color: #409EFF;
+  padding: 2px 8px;
+  cursor: pointer;
 }
 
 .product-grid {
@@ -337,11 +490,20 @@ const goToDetail = (id) => {
   .product-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+  .category-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
   .product-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .category-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .coupon-banner {
+    grid-template-columns: 1fr;
   }
 }
 </style>

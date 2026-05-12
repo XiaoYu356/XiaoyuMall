@@ -5,7 +5,7 @@
 
       <div v-else class="detail-content">
         <div class="product-gallery">
-          <el-image :src="product.mainImage" fit="contain">
+          <el-image :src="currentImage" fit="contain">
             <template #error>
               <div class="image-placeholder">
                 <el-icon :size="100"><Picture /></el-icon>
@@ -21,9 +21,14 @@
           <div class="price-section">
             <span class="label">价格：</span>
             <span class="price">¥{{ currentPrice }}</span>
-            <span v-if="product.originalPrice" class="original-price">
+            <span v-if="!selectedSku && product.originalPrice && product.originalPrice > product.price" class="original-price">
               ¥{{ product.originalPrice }}
             </span>
+          </div>
+
+          <div v-if="product.brandName" class="brand-section">
+            <span class="label">品牌：</span>
+            <span>{{ product.brandName }}</span>
           </div>
 
           <div class="sales-section">
@@ -94,6 +99,13 @@ const addingToCart = ref(false)
 
 const currentPrice = computed(() => {
   return selectedSku.value?.price || product.value.price || 0
+})
+
+const currentImage = computed(() => {
+  if (selectedSku.value?.image) {
+    return selectedSku.value.image
+  }
+  return product.value.mainImage
 })
 
 const maxQuantity = computed(() => {
@@ -175,10 +187,22 @@ const buyNow = async () => {
     return
   }
 
-  await addToCart()
-  if (selectedSku.value) {
-    router.push('/cart')
+  if (!selectedSku.value) {
+    ElMessage.warning('请选择商品规格')
+    return
   }
+
+  const checkoutItem = {
+    productId: product.value.id,
+    skuId: selectedSku.value.id,
+    productName: product.value.productName,
+    skuName: selectedSku.value.skuName,
+    price: selectedSku.value.price,
+    quantity: quantity.value,
+    productImage: product.value.mainImage
+  }
+  localStorage.setItem('checkoutItems', JSON.stringify([checkoutItem]))
+  router.push('/checkout')
 }
 </script>
 
@@ -233,6 +257,7 @@ const buyNow = async () => {
 }
 
 .price-section,
+.brand-section,
 .sales-section,
 .stock-section,
 .quantity-section {

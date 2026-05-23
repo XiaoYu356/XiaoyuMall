@@ -12,9 +12,11 @@ export const getProductSkus = (productId) => {
   return request({ url: `/v1/products/${productId}/skus`, method: 'get' })
 }
 
-export const getCategories = () => {
+export const getCategoryList = () => {
   return request({ url: '/v1/products/categories', method: 'get' })
 }
+
+export const getCategories = getCategoryList
 
 export const getBrandList = () => {
   return request({ url: '/v1/products/brands', method: 'get' })

@@ -176,9 +176,9 @@ const handleReceive = async (coupon) => {
   receivingIds.value.add(coupon.id)
   try {
     await receiveCoupon(coupon.id)
-    ElMessage.success('领取成功！')
     coupon.usedCount += 1
     coupon.userReceivedCount = (coupon.userReceivedCount || 0) + 1
+    ElMessage.success('领取成功！')
   } catch (error) {
     console.error('领取失败:', error)
   } finally {

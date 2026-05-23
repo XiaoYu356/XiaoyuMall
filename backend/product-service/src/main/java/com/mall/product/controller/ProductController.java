@@ -185,6 +185,13 @@ public class ProductController {
         return Result.success("同步完成");
     }
 
+    @PostMapping("/stock/sync")
+    @Operation(summary = "同步库存数据到Redis")
+    public Result<String> syncStockToRedis() {
+        productService.syncStockToRedis();
+        return Result.success("库存同步完成");
+    }
+
     @GetMapping("/es/suggest")
     @Operation(summary = "搜索建议")
     public Result<List<String>> searchSuggest(@RequestParam String prefix) {

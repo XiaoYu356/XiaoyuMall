@@ -8,6 +8,10 @@ export const getOrderById = (id) => {
   return request({ url: `/v1/orders/${id}`, method: 'get' })
 }
 
+export const getOrderByOrderNo = (orderNo) => {
+  return request({ url: `/v1/orders/no/${orderNo}`, method: 'get' })
+}
+
 export const createOrder = (data) => {
   return request({ url: '/v1/orders', method: 'post', data })
 }

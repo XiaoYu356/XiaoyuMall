@@ -2,6 +2,7 @@ D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\entity
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\es\ProductDocument.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mapper\BrandMapper.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\config\MyMetaObjectHandler.java
+D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\config\StockInitRunner.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\service\ProductService.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mapper\ProductMapper.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\controller\AIController.java

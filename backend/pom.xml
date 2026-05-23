@@ -35,7 +35,7 @@
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <druid.version>1.2.21</druid.version>
         <redis.version>7.2.0</redis.version>
-        <rocketmq.version>2.2.3</rocketmq.version>
+        <rocketmq.version>2.3.0</rocketmq.version>
         <minio.version>8.5.7</minio.version>
         <hutool.version>5.8.25</hutool.version>
         <lombok.version>1.18.30</lombok.version>
@@ -92,6 +92,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-jsqlparser</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.alibaba</groupId>
                 <artifactId>druid-spring-boot-3-starter</artifactId>
                 <version>${druid.version}</version>
@@ -101,6 +107,12 @@
                 <groupId>org.apache.rocketmq</groupId>
                 <artifactId>rocketmq-spring-boot-starter</artifactId>
                 <version>${rocketmq.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.rocketmq</groupId>
+                <artifactId>rocketmq-client</artifactId>
+                <version>5.1.4</version>
             </dependency>
 
             <dependency>

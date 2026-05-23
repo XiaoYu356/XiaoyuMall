@@ -30,6 +30,7 @@ import com.mall.product.entity.ProductVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -84,6 +85,9 @@ public class ProductSearchService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     public void createIndexIfNeeded() {
         try {
@@ -435,7 +439,7 @@ public class ProductSearchService {
             try {
                 String historyKey = SEARCH_HISTORY_PREFIX + userId;
                 DefaultRedisScript<Long> script = new DefaultRedisScript<>(RECORD_HISTORY_SCRIPT, Long.class);
-                redisTemplate.execute(script, Collections.singletonList(historyKey), keyword, String.valueOf(MAX_HISTORY_SIZE));
+                stringRedisTemplate.execute(script, Collections.singletonList(historyKey), keyword, String.valueOf(MAX_HISTORY_SIZE));
             } catch (Exception e) {
                 log.warn("记录搜索历史失败", e);
             }

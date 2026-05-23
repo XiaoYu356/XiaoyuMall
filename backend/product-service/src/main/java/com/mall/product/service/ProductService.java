@@ -52,4 +52,6 @@ public interface ProductService {
     List<ProductSku> getProductSkuList(Long productId);
 
     ProductSku getSkuById(Long skuId);
+
+    void syncStockToRedis();
 }

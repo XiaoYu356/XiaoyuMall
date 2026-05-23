@@ -50,11 +50,6 @@
             <span style="color: #F56C6C">¥{{ row.price }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="brandName" label="品牌" width="120">
-          <template #default="{ row }">
-            <span>{{ row.brandName || '-' }}</span>
-          </template>
-        </el-table-column>
         <el-table-column prop="sales" label="销量" width="100" />
         <el-table-column prop="totalStock" label="库存" width="100">
           <template #default="{ row }">
@@ -146,13 +141,6 @@
                 check-strictly
                 style="width: 100%"
               />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="品牌">
-              <el-select v-model="productForm.brandId" placeholder="请选择品牌" clearable style="width: 100%">
-                <el-option v-for="brand in brandList" :key="brand.id" :label="brand.brandName" :value="brand.id" />
-              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -320,7 +308,6 @@
         <el-descriptions-item label="商品名称" :span="2">{{ detailData.productName }}</el-descriptions-item>
         <el-descriptions-item label="商品编码">{{ detailData.productCode }}</el-descriptions-item>
         <el-descriptions-item label="分类">{{ detailData.categoryName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="品牌">{{ detailData.brandName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="销售价">
           <span style="color: #F56C6C; font-weight: bold">¥{{ detailData.price }}</span>
         </el-descriptions-item>
@@ -396,7 +383,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
-import { getCategoryList, getBrandList, getProductList, getProductById, createProduct, updateProduct, deleteProduct, getProductSkus, uploadFile } from '@/api/product'
+import { getCategoryList, getProductList, getProductById, createProduct, updateProduct, deleteProduct, getProductSkus, uploadFile } from '@/api/product'
 
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -406,7 +393,6 @@ const detailData = ref({})
 const detailSkuList = ref([])
 const productList = ref([])
 const categoryList = ref([])
-const brandList = ref([])
 const productFormRef = ref(null)
 const editSkuList = ref([])
 const uploading = ref(false)
@@ -427,7 +413,6 @@ const productForm = reactive({
   productName: '',
   productCode: '',
   categoryId: null,
-  brandId: null,
   price: 0,
   mainImage: '',
   description: '',
@@ -604,15 +589,6 @@ const fetchCategoryList = async () => {
   }
 }
 
-const fetchBrandList = async () => {
-  try {
-    const res = await getBrandList()
-    brandList.value = res.data || []
-  } catch (error) {
-    console.error('获取品牌列表失败:', error)
-  }
-}
-
 const fetchProductList = async () => {
   loading.value = true
   try {
@@ -648,7 +624,6 @@ const handleAdd = () => {
     productName: '',
     productCode: '',
     categoryId: null,
-    brandId: null,
     price: 0,
     mainImage: '',
     description: '',
@@ -722,7 +697,7 @@ const handleDelete = (row) => {
     await deleteProduct(row.id)
     ElMessage.success('删除成功')
     fetchProductList()
-  })
+  }).catch(() => {})
 }
 
 const handleStatusChange = async (row) => {
@@ -774,7 +749,6 @@ const handleCurrentChange = (val) => {
 
 onMounted(() => {
   fetchCategoryList()
-  fetchBrandList()
   fetchProductList()
 })
 </script>

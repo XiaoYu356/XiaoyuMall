@@ -53,12 +53,19 @@ public class OrderController {
         return Result.success(order);
     }
 
+    @GetMapping("/no/{orderNo}")
+    @Operation(summary = "根据订单号查询订单")
+    public Result<Order> getOrderByOrderNo(@PathVariable String orderNo) {
+        Order order = orderService.getOrderByOrderNo(orderNo);
+        return Result.success(order);
+    }
+
     @PostMapping
     @Operation(summary = "创建订单")
-    public Result<Order> createOrder(@Valid @RequestBody CreateOrderDTO dto) {
+    public Result<Map<String, Object>> createOrder(@Valid @RequestBody CreateOrderDTO dto) {
         dto.setUserId(StpUtil.getLoginIdAsLong());
-        Order order = orderService.createOrder(dto);
-        return Result.success(order);
+        Map<String, Object> result = orderService.createOrder(dto);
+        return Result.success(result);
     }
 
     @PostMapping("/{orderId}/pay")

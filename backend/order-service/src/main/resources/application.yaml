@@ -55,6 +55,14 @@ sa-token:
   token-style: uuid
   is-log: false
 
+rocketmq:
+  enabled: true
+  name-server: localhost:9876
+  producer:
+    group: order-producer-group
+    send-message-timeout: 3000
+    retry-times-when-send-failed: 2
+
 order:
   timeout-minutes: 15
   stock-retry-times: 3

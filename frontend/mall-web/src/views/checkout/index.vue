@@ -184,7 +184,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { CircleCheck, Picture, Close } from '@element-plus/icons-vue'
-import { createOrder } from '@/api/order'
+import { createOrder, getOrderByOrderNo } from '@/api/order'
 import { getAddressList, addAddress } from '@/api/user'
 import { getMyCoupons, calculateDiscount } from '@/api/coupon'
 import { deleteCartBatch } from '@/api/cart'
@@ -363,7 +363,8 @@ const submitOrder = async () => {
       }))
     }
 
-    await createOrder(orderData)
+    const res = await createOrder(orderData)
+    const { orderNo, status } = res.data || {}
 
     const cartIds = checkoutItems.value.map(item => item.id).filter(id => id)
     if (cartIds.length > 0) {
@@ -375,13 +376,44 @@ const submitOrder = async () => {
     }
 
     localStorage.removeItem('checkoutItems')
-    ElMessage.success('订单创建成功')
-    router.push('/orders')
+
+    if (status === 'processing' && orderNo) {
+      ElMessage.info('订单正在处理中，请稍候...')
+      pollOrderStatus(orderNo)
+    } else {
+      ElMessage.success('订单创建成功')
+      router.push('/orders')
+    }
   } catch (error) {
     console.error('创建订单失败:', error)
   } finally {
     submitting.value = false
   }
+}
+
+const pollOrderStatus = (orderNo) => {
+  let retries = 0
+  const maxRetries = 30
+  const interval = 1000
+
+  const timer = setInterval(async () => {
+    retries++
+    try {
+      const res = await getOrderByOrderNo(orderNo)
+      if (res.data && res.data.id) {
+        clearInterval(timer)
+        ElMessage.success('订单创建成功')
+        router.push('/orders')
+      }
+    } catch (e) {
+      console.warn('轮询订单状态失败:', e)
+    }
+    if (retries >= maxRetries) {
+      clearInterval(timer)
+      ElMessage.warning('订单处理中，请稍后在订单列表查看')
+      router.push('/orders')
+    }
+  }, interval)
 }
 </script>
 

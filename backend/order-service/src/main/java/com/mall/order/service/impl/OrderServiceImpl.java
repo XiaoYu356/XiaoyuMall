@@ -14,7 +14,10 @@ import com.mall.order.feign.CouponServiceClient;
 import com.mall.order.feign.ProductServiceClient;
 import com.mall.order.mapper.OrderMapper;
 import com.mall.order.mapper.OrderItemMapper;
+import com.mall.order.mq.OrderCreateMessage;
+import com.mall.order.mq.OrderMessageProducer;
 import com.mall.order.service.OrderService;
+import com.mall.order.service.StockRedisService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,11 +27,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -42,6 +41,15 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private ProductServiceClient productServiceClient;
+
+    @Autowired
+    private CouponServiceClient couponServiceClient;
+
+    @Autowired
+    private StockRedisService stockRedisService;
+
+    @Autowired(required = false)
+    private OrderMessageProducer orderMessageProducer;
 
     @Override
     public Map<String, Object> getOrderStats() {
@@ -67,9 +75,6 @@ public class OrderServiceImpl implements OrderService {
         stats.put("totalAmount", totalAmount);
         return stats;
     }
-
-    @Autowired
-    private CouponServiceClient couponServiceClient;
 
     @Override
     public Page<Order> getOrderList(Long userId, Integer status, String orderNo, Integer pageNum, Integer pageSize) {
@@ -106,10 +111,86 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Order createOrder(CreateOrderDTO dto) {
+    public Order getOrderByOrderNo(String orderNo) {
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Order::getOrderNo, orderNo);
+        Order order = orderMapper.selectOne(wrapper);
+        if (order != null) {
+            List<OrderItem> items = getOrderItems(order.getId());
+            order.setItems(items);
+        }
+        return order;
+    }
+
+    @Override
+    public Map<String, Object> createOrder(CreateOrderDTO dto) {
+        String orderNo = generateOrderNo();
+
+        Map<Long, Integer> skuQuantityMap = new LinkedHashMap<>();
+        for (CreateOrderDTO.OrderItemDTO itemDTO : dto.getItems()) {
+            if (itemDTO.getSkuId() != null) {
+                skuQuantityMap.merge(itemDTO.getSkuId(), itemDTO.getQuantity(), Integer::sum);
+            }
+        }
+
+        List<Long> skuIds = new ArrayList<>(skuQuantityMap.keySet());
+        List<Integer> quantities = new ArrayList<>(skuQuantityMap.values());
+
+        if (orderMessageProducer == null) {
+            return createOrderSync(dto, orderNo, skuIds, quantities);
+        }
+
+        boolean deducted = stockRedisService.deductStock(skuIds, quantities);
+        if (!deducted) {
+            throw new BusinessException("库存不足，请稍后重试");
+        }
+
+        OrderCreateMessage message = new OrderCreateMessage();
+        message.setOrderNo(orderNo);
+        message.setUserId(dto.getUserId());
+        message.setReceiverName(dto.getReceiverName());
+        message.setReceiverPhone(dto.getReceiverPhone());
+        message.setReceiverAddress(dto.getReceiverAddress());
+        message.setRemark(dto.getRemark());
+        message.setCouponId(dto.getCouponId());
+        message.setItems(new ArrayList<>());
+        for (CreateOrderDTO.OrderItemDTO itemDTO : dto.getItems()) {
+            OrderCreateMessage.OrderItemMessage itemMsg = new OrderCreateMessage.OrderItemMessage();
+            itemMsg.setProductId(itemDTO.getProductId());
+            itemMsg.setSkuId(itemDTO.getSkuId());
+            itemMsg.setQuantity(itemDTO.getQuantity());
+            message.getItems().add(itemMsg);
+        }
+
+        boolean sent = orderMessageProducer.sendOrderCreateMessage(message);
+        if (!sent) {
+            stockRedisService.addStock(skuIds, quantities);
+            throw new BusinessException("系统繁忙，请稍后重试");
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderNo", orderNo);
+        result.put("status", "processing");
+        result.put("message", "订单正在处理中");
+
+        log.info("订单提交成功，等待后台处理: orderNo={}", orderNo);
+        return result;
+    }
+
+    private Map<String, Object> createOrderSync(CreateOrderDTO dto, String orderNo, List<Long> skuIds, List<Integer> quantities) {
+        log.info("RocketMQ不可用，降级为同步创建订单: orderNo={}", orderNo);
+        for (int i = 0; i < skuIds.size(); i++) {
+            Result<Boolean> stockResult = productServiceClient.deductStock(skuIds.get(i), quantities.get(i));
+            if (stockResult == null || !Boolean.TRUE.equals(stockResult.getData())) {
+                for (int j = 0; j < i; j++) {
+                    try { productServiceClient.addStock(skuIds.get(j), quantities.get(j)); } catch (Exception ignored) {}
+                }
+                throw new BusinessException("库存不足");
+            }
+        }
+
         Order order = new Order();
-        order.setOrderNo(generateOrderNo());
+        order.setOrderNo(orderNo);
         order.setUserId(dto.getUserId());
         order.setStatus(0);
         order.setRemark(dto.getRemark());
@@ -119,20 +200,14 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItem> orderItems = new ArrayList<>();
-
         for (CreateOrderDTO.OrderItemDTO itemDTO : dto.getItems()) {
             Result<Product> productResult = productServiceClient.getProductById(itemDTO.getProductId());
             Product product = productResult != null ? productResult.getData() : null;
-            if (product == null) {
-                throw new BusinessException("商品不存在, productId=" + itemDTO.getProductId());
-            }
-
             ProductSku sku = null;
             if (itemDTO.getSkuId() != null) {
                 Result<ProductSku> skuResult = productServiceClient.getSkuById(itemDTO.getSkuId());
                 sku = skuResult != null ? skuResult.getData() : null;
             }
-
             OrderItem item = new OrderItem();
             item.setProductId(itemDTO.getProductId());
             item.setSkuId(itemDTO.getSkuId());
@@ -143,24 +218,14 @@ public class OrderServiceImpl implements OrderService {
             item.setSkuName(sku != null && sku.getSkuName() != null ? sku.getSkuName() : product.getProductName());
             item.setSkuCode(sku != null && sku.getSkuCode() != null ? sku.getSkuCode() : "SKU" + itemDTO.getSkuId());
             item.setProductImage(product.getMainImage());
-            item.setOrderNo(order.getOrderNo());
-
+            item.setOrderNo(orderNo);
             totalAmount = totalAmount.add(item.getTotalAmount());
             orderItems.add(item);
 
-            Result<Boolean> stockResult = productServiceClient.deductStock(itemDTO.getSkuId(), itemDTO.getQuantity());
-            if (stockResult == null || !Boolean.TRUE.equals(stockResult.getData())) {
-                throw new BusinessException("库存扣减失败, skuId=" + itemDTO.getSkuId());
-            }
-
-            Result<Boolean> salesResult = productServiceClient.incrementSales(itemDTO.getProductId(), itemDTO.getQuantity());
-            if (salesResult == null || !Boolean.TRUE.equals(salesResult.getData())) {
-                log.warn("商品销量更新失败, productId={}, quantity={}", itemDTO.getProductId(), itemDTO.getQuantity());
-            }
+            productServiceClient.incrementSales(itemDTO.getProductId(), itemDTO.getQuantity());
         }
 
         order.setTotalAmount(totalAmount);
-
         if (dto.getCouponId() != null) {
             Result<BigDecimal> discountResult = couponServiceClient.calculateDiscount(dto.getCouponId(), totalAmount);
             BigDecimal discount = discountResult != null ? discountResult.getData() : BigDecimal.ZERO;
@@ -171,20 +236,22 @@ public class OrderServiceImpl implements OrderService {
             order.setPayAmount(totalAmount);
             order.setDiscountAmount(BigDecimal.ZERO);
         }
-
         if (order.getPayAmount().compareTo(BigDecimal.ZERO) < 0) {
             order.setPayAmount(BigDecimal.ZERO);
         }
 
         orderMapper.insert(order);
-
         for (OrderItem item : orderItems) {
             item.setOrderId(order.getId());
             orderItemMapper.insert(item);
         }
 
-        log.info("订单创建成功: {}", order.getOrderNo());
-        return order;
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderNo", orderNo);
+        result.put("status", "created");
+        result.put("orderId", order.getId());
+        result.put("message", "订单创建成功");
+        return result;
     }
 
     @Override

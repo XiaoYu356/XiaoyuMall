@@ -14,7 +14,9 @@ public interface OrderService {
 
     Order getOrderById(Long orderId);
 
-    Order createOrder(CreateOrderDTO dto);
+    Order getOrderByOrderNo(String orderNo);
+
+    Map<String, Object> createOrder(CreateOrderDTO dto);
 
     boolean payOrder(Long orderId);
 

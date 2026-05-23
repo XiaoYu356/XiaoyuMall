@@ -54,7 +54,7 @@
             >
               详情
             </el-button>
-            <el-tooltip :content="canEdit(row) ? '' : '已发放的优惠券不可编辑'" placement="top" :disabled="canEdit(row)">
+            <el-tooltip :content="canEdit(row) ? '' : '已开始发行的优惠券不可编辑'" placement="top" :disabled="canEdit(row)">
               <el-button
                 type="primary"
                 size="small"
@@ -65,14 +65,17 @@
                 编辑
               </el-button>
             </el-tooltip>
-            <el-button
-              type="danger"
-              size="small"
-              v-permission="'coupon:delete'"
-              @click="handleDelete(row)"
-            >
-              删除
-            </el-button>
+            <el-tooltip :content="canEdit(row) ? '' : '已开始发行的优惠券不可删除'" placement="top" :disabled="canEdit(row)">
+              <el-button
+                type="danger"
+                size="small"
+                v-permission="'coupon:delete'"
+                :disabled="!canEdit(row)"
+                @click="handleDelete(row)"
+              >
+                删除
+              </el-button>
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -207,7 +210,8 @@ const getTypeName = (type) => TYPE_NAME_MAP[type] || '未知'
 const getTypeColor = (type) => TYPE_COLOR_MAP[type] || 'info'
 
 const canEdit = (row) => {
-  return row.usedCount === 0
+  if (!row.startTime) return true
+  return new Date() < new Date(row.startTime)
 }
 
 const fetchCouponList = async () => {
@@ -264,14 +268,19 @@ const handleEdit = (row) => {
   dialogVisible.value = true
 }
 
-const handleDelete = (row) => {
-  ElMessageBox.confirm('确定要删除该优惠券吗?', '提示', {
-    type: 'warning'
-  }).then(async () => {
+const handleDelete = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该优惠券吗?', '提示', {
+      type: 'warning'
+    })
     await deleteCoupon(row.id)
     ElMessage.success('删除成功')
     fetchCouponList()
-  })
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+    }
+  }
 }
 
 const formatDateTime = (date) => {

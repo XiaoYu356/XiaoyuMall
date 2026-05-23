@@ -1,0 +1,4 @@
+com\mall\gateway\filter\AuthFilter.class
+com\mall\gateway\filter\AuthFilter$1.class
+com\mall\gateway\filter\CorsFilter.class
+com\mall\gateway\GatewayApplication.class

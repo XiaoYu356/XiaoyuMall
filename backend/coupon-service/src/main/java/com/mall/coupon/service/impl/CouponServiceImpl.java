@@ -12,6 +12,8 @@ import com.mall.coupon.entity.UserCouponVO;
 import com.mall.coupon.mapper.CouponTemplateMapper;
 import com.mall.coupon.mapper.UserCouponMapper;
 import com.mall.coupon.service.CouponService;
+import com.mall.coupon.mq.CouponMessageProducer;
+import com.mall.coupon.mq.CouponReceiveMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -47,6 +49,9 @@ public class CouponServiceImpl implements CouponService {
 
     @Autowired
     private TransactionTemplate transactionTemplate;
+
+    @Autowired(required = false)
+    private CouponMessageProducer couponMessageProducer;
 
     private static final String RECEIVE_SCRIPT =
             "local stockKey = KEYS[1] " +
@@ -163,6 +168,15 @@ public class CouponServiceImpl implements CouponService {
 
     @Override
     public CouponTemplate updateCouponTemplate(CouponTemplate template) {
+        CouponTemplate existing = couponTemplateMapper.selectById(template.getId());
+        if (existing == null) {
+            throw new BusinessException("优惠券不存在");
+        }
+
+        if (LocalDateTime.now(ZoneId.of("Asia/Shanghai")).isAfter(existing.getStartTime())) {
+            throw new BusinessException("优惠券已开始发行，无法编辑");
+        }
+
         template.setPerLimit(1);
         couponTemplateMapper.updateById(template);
 
@@ -174,17 +188,20 @@ public class CouponServiceImpl implements CouponService {
         }
 
         log.info("优惠券模板更新成功: {}", template.getId());
-        return template;
+        return updated;
     }
 
     @Override
     public void deleteCouponTemplate(Long templateId) {
-        LambdaQueryWrapper<UserCoupon> ucWrapper = new LambdaQueryWrapper<>();
-        ucWrapper.eq(UserCoupon::getTemplateId, templateId);
-        Long receivedCount = userCouponMapper.selectCount(ucWrapper);
-        if (receivedCount > 0) {
-            throw new BusinessException("该优惠券已被用户领取，无法删除，请改为禁用");
+        CouponTemplate existing = couponTemplateMapper.selectById(templateId);
+        if (existing == null) {
+            throw new BusinessException("优惠券不存在");
         }
+
+        if (LocalDateTime.now(ZoneId.of("Asia/Shanghai")).isAfter(existing.getStartTime())) {
+            throw new BusinessException("优惠券已开始发行，无法删除，请改为禁用");
+        }
+
         couponTemplateMapper.deleteById(templateId);
 
         String stockKey = RedisConstant.COUPON_STOCK_KEY + templateId;
@@ -268,6 +285,72 @@ public class CouponServiceImpl implements CouponService {
             log.error("领取优惠券异常: userId={}, templateId={}", userId, templateId, e);
             throw new BusinessException("领取优惠券失败，请重试");
         }
+    }
+
+    @Override
+    public void receiveCouponAsync(Long userId, Long templateId) {
+        if (couponMessageProducer == null) {
+            log.info("RocketMQ不可用，降级为同步领取优惠券: userId={}, templateId={}", userId, templateId);
+            receiveCoupon(userId, templateId);
+            return;
+        }
+
+        CouponTemplate template = couponTemplateMapper.selectById(templateId);
+        if (template == null) {
+            throw new BusinessException("优惠券不存在");
+        }
+        if (template.getStatus() != 1) {
+            throw new BusinessException("优惠券已禁用");
+        }
+        if (LocalDateTime.now(ZoneId.of("Asia/Shanghai")).isBefore(template.getStartTime()) ||
+            LocalDateTime.now(ZoneId.of("Asia/Shanghai")).isAfter(template.getEndTime())) {
+            throw new BusinessException("优惠券不在有效期内");
+        }
+
+        String stockKey = RedisConstant.COUPON_STOCK_KEY + templateId;
+        String userKey = RedisConstant.USER_COUPON_KEY + templateId;
+
+        DefaultRedisScript<Long> receiveScript = new DefaultRedisScript<>(RECEIVE_SCRIPT, Long.class);
+        Long result = stringRedisTemplate.execute(
+                receiveScript,
+                Arrays.asList(stockKey, userKey),
+                userId.toString()
+        );
+
+        if (result == null || result == 0) {
+            throw new BusinessException("优惠券已领完");
+        }
+        if (result == 2) {
+            throw new BusinessException("已达到领取上限");
+        }
+        if (result == -1) {
+            syncSingleTemplateToRedis(template);
+            result = stringRedisTemplate.execute(
+                    receiveScript,
+                    Arrays.asList(stockKey, userKey),
+                    userId.toString()
+            );
+            if (result == null || result == 0) {
+                throw new BusinessException("优惠券已领完");
+            }
+            if (result == 2) {
+                throw new BusinessException("已达到领取上限");
+            }
+        }
+
+        CouponReceiveMessage message = new CouponReceiveMessage();
+        message.setUserId(userId);
+        message.setTemplateId(templateId);
+
+        boolean sent = couponMessageProducer.sendReceiveMessage(message);
+        if (!sent) {
+            rollbackRedis(templateId, userId);
+            log.warn("RocketMQ消息发送失败，降级为同步领取优惠券: userId={}, templateId={}", userId, templateId);
+            receiveCoupon(userId, templateId);
+            return;
+        }
+
+        log.info("优惠券异步领取消息已发送: userId={}, templateId={}", userId, templateId);
     }
 
     private void syncSingleTemplateToRedis(CouponTemplate template) {

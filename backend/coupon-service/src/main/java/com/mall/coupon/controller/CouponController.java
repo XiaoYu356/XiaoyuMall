@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -86,10 +87,13 @@ public class CouponController {
     @PostMapping("/receive/{templateId}")
     @Operation(summary = "领取优惠券")
     @SaCheckLogin
-    public Result<UserCoupon> receiveCoupon(@PathVariable Long templateId) {
+    public Result<Map<String, Object>> receiveCoupon(@PathVariable Long templateId) {
         Long userId = StpUtil.getLoginIdAsLong();
-        UserCoupon userCoupon = couponService.receiveCoupon(userId, templateId);
-        return Result.success(userCoupon);
+        couponService.receiveCouponAsync(userId, templateId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("status", "processing");
+        result.put("message", "领取请求已提交，正在处理中");
+        return Result.success(result);
     }
     
     @GetMapping("/mine")
@@ -131,5 +135,12 @@ public class CouponController {
             @RequestParam(defaultValue = "10") Integer pageSize) {
         Page<UserCouponVO> page = couponService.getUserCouponList(userId, status, pageNum, pageSize);
         return Result.success(page);
+    }
+    
+    @PostMapping("/sync-stock")
+    @Operation(summary = "同步优惠券库存到Redis")
+    public Result<String> syncCouponStockToRedis() {
+        couponService.syncCouponStockToRedis();
+        return Result.success("优惠券库存同步完成");
     }
 }

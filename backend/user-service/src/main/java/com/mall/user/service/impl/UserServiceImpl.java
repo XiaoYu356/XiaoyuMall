@@ -191,6 +191,7 @@ public class UserServiceImpl implements UserService {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.like(StrUtil.isNotBlank(dto.getUsername()), User::getUsername, dto.getUsername())
                 .like(StrUtil.isNotBlank(dto.getPhone()), User::getPhone, dto.getPhone())
+                .eq(dto.getStatus() != null, User::getStatus, dto.getStatus())
                 .orderByDesc(User::getCreateTime);
         
         Page<User> userPage = userMapper.selectPage(page, queryWrapper);

@@ -21,6 +21,7 @@ import com.mall.product.service.ProductService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -51,6 +52,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Autowired
     private ProductSearchService productSearchService;
@@ -332,14 +336,7 @@ public class ProductServiceImpl implements ProductService {
             throw new BusinessException("库存不足");
         }
 
-        String stockKey = RedisConstant.PRODUCT_STOCK_KEY + skuId;
-        try {
-            redisTemplate.opsForValue().decrement(stockKey, quantity);
-        } catch (Exception e) {
-            log.warn("Redis库存扣减失败，将在下次读取时补偿: skuId={}", skuId, e);
-        }
-
-        log.info("库存扣减成功: skuId={}, quantity={}", skuId, quantity);
+        log.info("MySQL库存扣减成功: skuId={}, quantity={}", skuId, quantity);
         syncProductToEs(productSkuMapper.selectById(skuId).getProductId());
         return true;
     }
@@ -354,7 +351,7 @@ public class ProductServiceImpl implements ProductService {
 
         String stockKey = RedisConstant.PRODUCT_STOCK_KEY + skuId;
         try {
-            redisTemplate.opsForValue().increment(stockKey, quantity);
+            stringRedisTemplate.opsForValue().increment(stockKey, quantity);
         } catch (Exception e) {
             log.warn("Redis库存增加失败，将在下次读取时补偿: skuId={}", skuId, e);
         }
@@ -506,6 +503,18 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ProductSku getSkuById(Long skuId) {
         return productSkuMapper.selectById(skuId);
+    }
+
+    @Override
+    public void syncStockToRedis() {
+        List<ProductSku> allSkus = productSkuMapper.selectList(null);
+        int count = 0;
+        for (ProductSku sku : allSkus) {
+            String stockKey = RedisConstant.PRODUCT_STOCK_KEY + sku.getId();
+            stringRedisTemplate.opsForValue().set(stockKey, String.valueOf(sku.getStock() != null ? sku.getStock() : 0));
+            count++;
+        }
+        log.info("库存数据同步到Redis完成，共同步{}个SKU", count);
     }
 
     private void syncProductToEs(Long productId) {

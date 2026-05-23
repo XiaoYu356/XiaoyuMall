@@ -1,5 +1,12 @@
 server:
   port: 8083
+  tomcat:
+    threads:
+      max: 500
+      min-spare: 50
+    max-connections: 10000
+    accept-count: 1000
+    connection-timeout: 10000ms
 
 spring:
   application:
@@ -54,6 +61,14 @@ sa-token:
   is-share: true
   token-style: uuid
   is-log: false
+
+rocketmq:
+  enabled: true
+  name-server: localhost:9876
+  producer:
+    group: coupon-producer-group
+    send-message-timeout: 3000
+    retry-times-when-send-failed: 2
 
 knife4j:
   enable: true

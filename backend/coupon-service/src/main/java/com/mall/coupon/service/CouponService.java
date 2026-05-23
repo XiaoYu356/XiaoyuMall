@@ -24,6 +24,8 @@ public interface CouponService {
     void deleteCouponTemplate(Long templateId);
     
     UserCoupon receiveCoupon(Long userId, Long templateId);
+
+    void receiveCouponAsync(Long userId, Long templateId);
     
     BigDecimal calculateDiscount(Long couponId, BigDecimal orderAmount);
     

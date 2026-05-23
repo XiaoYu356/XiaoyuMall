@@ -212,7 +212,7 @@ const handleShip = (row) => {
     await shipOrder(row.id)
     ElMessage.success('发货成功')
     fetchOrderList()
-  })
+  }).catch(() => {})
 }
 
 const handleCancel = (row) => {
@@ -222,7 +222,7 @@ const handleCancel = (row) => {
     await cancelOrder(row.id)
     ElMessage.success('订单已取消')
     fetchOrderList()
-  })
+  }).catch(() => {})
 }
 
 const handleSizeChange = (val) => {

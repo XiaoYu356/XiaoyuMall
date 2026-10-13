@@ -1,0 +1,8 @@
+# Grafana Dashboard provisioning：从本地目录扫描 JSON 文件自动加载
+apiVersion: 1
+providers:
+  - name: default
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

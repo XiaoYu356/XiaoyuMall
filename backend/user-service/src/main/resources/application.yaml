@@ -71,3 +71,7 @@ knife4j:
   enable: true
   setting:
     language: zh_cn
+
+# 内部服务间共享密钥（Feign/AI 服务调用经 X-Internal-Secret 头携带）
+internal:
+  secret: xiaoyu-internal-2026

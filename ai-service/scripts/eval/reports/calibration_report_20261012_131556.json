@@ -1,0 +1,104 @@
+{
+  "generated_at": "2026-10-12T13:15:56.981181",
+  "elapsed_s": 7597.9,
+  "summary": {
+    "thresholds": {
+      "T_HIGH": 0.0,
+      "T_MID": 0.0,
+      "T_LOW": 0.0,
+      "rules": "T_HIGH=neg_max P99；T_MID=neg_max P95；T_LOW=neg_max P50"
+    },
+    "validation": {
+      "positive_survival_at_T_MID": 0.955,
+      "positive_survival_target": 0.95,
+      "ood_false_admission_at_T_MID": 0.0,
+      "ood_high_conf_at_T_HIGH": 0.0,
+      "eer_reference": 0.0,
+      "distribution_conflict_warning": false
+    },
+    "distributions": {
+      "positive_best_gold_score": {
+        "n": 220,
+        "mean": 3.664,
+        "p5": 0.0481,
+        "p25": 2.5317,
+        "p50": 3.9828,
+        "p75": 4.9309,
+        "p90": 5.7645,
+        "p95": 6.5175,
+        "p99": 6.9438
+      },
+      "negative_max_score": {
+        "n": 0,
+        "mean": 0.0,
+        "p5": 0.0,
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "p99": 0.0
+      }
+    },
+    "rrf_top3": {
+      "n": 220,
+      "hit@1": 0.795,
+      "recall@3": 0.941,
+      "mrr": 0.864
+    },
+    "rerank_top3": {
+      "n": 220,
+      "hit@1": 0.95,
+      "recall@3": 1.0,
+      "mrr": 0.975
+    },
+    "rerank_graded": {
+      "n": 220,
+      "hit@1": 0.891,
+      "recall@3": 0.927,
+      "mrr": 0.909
+    },
+    "killed_in_domain": [
+      {
+        "query": "东西有瑕疵咋整？能换不",
+        "pos_best": -0.3899138569831848
+      },
+      {
+        "query": "买多少才免邮费呀？",
+        "pos_best": -2.084409713745117
+      },
+      {
+        "query": "结账时能咋付钱啊？",
+        "pos_best": -3.9216361045837402
+      },
+      {
+        "query": "你们家东西保真不？咋看是不是正品啊",
+        "pos_best": -0.11394722759723663
+      },
+      {
+        "query": "钱扣了咋没见订单？",
+        "pos_best": -1.2319426536560059
+      },
+      {
+        "query": "钱包里钱咋花的，能看明细不？",
+        "pos_best": -0.2937977910041809
+      },
+      {
+        "query": "钱充进去了咋没见余额变多？",
+        "pos_best": -0.9815227389335632
+      },
+      {
+        "query": "我最后付的那笔钱咋算的？",
+        "pos_best": -0.04900661110877991
+      },
+      {
+        "query": "付款刷脸总不过咋整？",
+        "pos_best": -1.7602479457855225
+      },
+      {
+        "query": "快递好几天没动静了咋整？",
+        "pos_best": -0.38088077306747437
+      }
+    ]
+  }
+}

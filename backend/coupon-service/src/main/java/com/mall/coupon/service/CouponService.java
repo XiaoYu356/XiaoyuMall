@@ -26,6 +26,11 @@ public interface CouponService {
     UserCoupon receiveCoupon(Long userId, Long templateId);
 
     void receiveCouponAsync(Long userId, Long templateId);
+
+    /**
+     * 按配置版本路由领券请求（v0先查再减/v1数据库原子扣减/v2同步Lua/v3异步MQ）
+     */
+    Map<String, Object> receiveCouponByStrategy(Long userId, Long templateId);
     
     BigDecimal calculateDiscount(Long couponId, BigDecimal orderAmount);
     

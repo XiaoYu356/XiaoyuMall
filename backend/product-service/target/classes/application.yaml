@@ -15,6 +15,12 @@ spring:
         server-addr: localhost:8848
       config:
         enabled: false
+    openfeign:
+      client:
+        config:
+          ai-service:
+            connect-timeout: 5000
+            read-timeout: 120000
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -82,6 +88,10 @@ logging:
     console: UTF-8
     file: UTF-8
 
+ai:
+  service:
+    url: http://localhost:8000
+
 sa-token:
   token-name: satoken
   timeout: 2592000
@@ -95,3 +105,15 @@ knife4j:
   enable: true
   setting:
     language: zh_cn
+
+rocketmq:
+  enabled: true
+  name-server: localhost:9876
+  producer:
+    group: product-producer-group
+    send-message-timeout: 3000
+    retry-times-when-send-failed: 2
+
+# 内部服务间共享密钥（Feign/AI 服务调用经 X-Internal-Secret 头携带）
+internal:
+  secret: xiaoyu-internal-2026

@@ -41,6 +41,15 @@
           <el-icon><Document /></el-icon>
           <span>订单管理</span>
         </el-menu-item>
+
+        <el-menu-item index="/knowledge/gaps">
+          <el-icon><WarningFilled /></el-icon>
+          <span>知识库缺口</span>
+        </el-menu-item>
+        <el-menu-item index="/knowledge/faqs">
+          <el-icon><Reading /></el-icon>
+          <span>FAQ管理</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 

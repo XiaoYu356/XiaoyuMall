@@ -17,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -85,14 +84,11 @@ public class CouponController {
     }
     
     @PostMapping("/receive/{templateId}")
-    @Operation(summary = "领取优惠券")
+    @Operation(summary = "领取优惠券(按coupon.receive.version配置路由版本)")
     @SaCheckLogin
     public Result<Map<String, Object>> receiveCoupon(@PathVariable Long templateId) {
         Long userId = StpUtil.getLoginIdAsLong();
-        couponService.receiveCouponAsync(userId, templateId);
-        Map<String, Object> result = new HashMap<>();
-        result.put("status", "processing");
-        result.put("message", "领取请求已提交，正在处理中");
+        Map<String, Object> result = couponService.receiveCouponByStrategy(userId, templateId);
         return Result.success(result);
     }
     
@@ -133,6 +129,11 @@ public class CouponController {
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize) {
+        // 登录态优先：C 端携带 token 时强制只能查自己，防止伪造 userId 越权；
+        // 无登录态（内部服务凭 X-Internal-Secret 调用）信任 path 变量
+        if (StpUtil.isLogin()) {
+            userId = StpUtil.getLoginIdAsLong();
+        }
         Page<UserCouponVO> page = couponService.getUserCouponList(userId, status, pageNum, pageSize);
         return Result.success(page);
     }

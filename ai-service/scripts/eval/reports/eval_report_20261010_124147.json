@@ -1,0 +1,74 @@
+{
+  "generated_at": "2026-10-10T12:41:47",
+  "model": "qwen3.8-max",
+  "summary": {
+    "total": 1,
+    "ran": 1,
+    "passed": 1,
+    "pass_rate": 1.0,
+    "by_category": {
+      "aftersale": {
+        "total": 1,
+        "passed": 1
+      }
+    },
+    "judge": {
+      "count": 0,
+      "avg_relevance": null,
+      "avg_groundedness": null,
+      "judge_fail": 0
+    },
+    "latency": {
+      "avg_total_ms": 8876,
+      "avg_ttft_ms": null
+    },
+    "tokens": {
+      "input": 2267,
+      "output": 226
+    }
+  },
+  "results": [
+    {
+      "id": "aftersale_reject_001",
+      "category": "aftersale",
+      "q": "订单 ORD20261010124012489BA2 收到货了质量有问题，我要退货退款",
+      "tools_called": [
+        "submit_aftersale"
+      ],
+      "cards": [],
+      "citations": [],
+      "text": "已为您取消，本次退货退款申请**未提交**，订单状态不受影响。\n\n如果之后还想申请，或想改为仅退款、先咨询质量问题处理方式，随时告诉我～",
+      "interrupt": true,
+      "resumed": false,
+      "blocked": false,
+      "input_tokens": 2267,
+      "output_tokens": 226,
+      "ttft_ms": null,
+      "total_ms": 8876,
+      "checks": [
+        [
+          "tools_any",
+          true,
+          "期望任一 ['submit_aftersale']，实际 ['submit_aftersale']"
+        ],
+        [
+          "interrupt",
+          true,
+          "期望 True，实际 True"
+        ],
+        [
+          "resume_done",
+          true,
+          "期望 resume=False，实际 False"
+        ],
+        [
+          "min_text_len",
+          true,
+          "期望文本 ≥4 字，实际 68"
+        ]
+      ],
+      "passed": true,
+      "judge": null
+    }
+  ]
+}

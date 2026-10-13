@@ -73,12 +73,12 @@ const handleTabChange = () => {
 }
 
 const getStatusText = (status) => {
-  const statusMap = { 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消' }
+  const statusMap = { 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '已退款' }
   return statusMap[status] || '未知'
 }
 
 const getStatusType = (status) => {
-  const typeMap = { 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger' }
+  const typeMap = { 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger', 5: 'info' }
   return typeMap[status] || 'info'
 }
 

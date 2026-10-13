@@ -256,9 +256,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean payOrder(Long orderId) {
+    public boolean payOrder(Long orderId, Long userId) {
         Order order = orderMapper.selectById(orderId);
-        if (order == null) {
+        if (order == null || !order.getUserId().equals(userId)) {
             throw new BusinessException("订单不存在");
         }
 
@@ -303,9 +303,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean cancelOrder(Long orderId) {
+    public boolean cancelOrder(Long orderId, Long userId) {
         Order order = orderMapper.selectById(orderId);
-        if (order == null) {
+        if (order == null || !order.getUserId().equals(userId)) {
             throw new BusinessException("订单不存在");
         }
 
@@ -352,9 +352,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean confirmReceive(Long orderId) {
+    public boolean confirmReceive(Long orderId, Long userId) {
         Order order = orderMapper.selectById(orderId);
-        if (order == null) {
+        if (order == null || !order.getUserId().equals(userId)) {
             throw new BusinessException("订单不存在");
         }
 
@@ -380,5 +380,47 @@ public class OrderServiceImpl implements OrderService {
         String timestamp = LocalDateTime.now(ZoneId.of("Asia/Shanghai")).format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         String random = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
         return "ORD" + timestamp + random;
+    }
+
+    private static final DateTimeFormatter TIMELINE_FMT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    @Override
+    public List<Map<String, Object>> getLogisticsTimeline(String orderNo, Long userId) {
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Order::getOrderNo, orderNo);
+        Order order = orderMapper.selectOne(wrapper);
+        if (order == null || !order.getUserId().equals(userId)) {
+            // 越权与不存在统一返回，避免存在性泄露
+            throw new BusinessException("订单不存在");
+        }
+
+        List<Map<String, Object>> timeline = new ArrayList<>();
+        if (order.getStatus() == 4) {
+            return timeline; // 已取消订单无物流
+        }
+        if (order.getPaymentTime() != null) {
+            timeline.add(timelineNode("已支付", "订单支付成功，等待商家发货", order.getPaymentTime()));
+        }
+        if (order.getDeliveryTime() != null) {
+            timeline.add(timelineNode("已揽收", "商家已发货，包裹已揽收", order.getDeliveryTime()));
+            // 中间节点按发货时间推导（真实系统替换为快递公司轨迹）
+            timeline.add(timelineNode("运输中", "包裹正在运输途中",
+                    order.getDeliveryTime().plusHours(12)));
+            timeline.add(timelineNode("派送中", "包裹已到达配送站，快递员正在派送",
+                    order.getDeliveryTime().plusHours(24)));
+        }
+        if (order.getReceiveTime() != null) {
+            timeline.add(timelineNode("已签收", "包裹已签收，感谢您的购买", order.getReceiveTime()));
+        }
+        return timeline;
+    }
+
+    private Map<String, Object> timelineNode(String status, String description, LocalDateTime time) {
+        Map<String, Object> node = new LinkedHashMap<>();
+        node.put("status", status);
+        node.put("description", description);
+        node.put("time", time.format(TIMELINE_FMT));
+        return node;
     }
 }

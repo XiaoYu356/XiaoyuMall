@@ -1,0 +1,115 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "TTFT P50/P95/P99 首 token 延迟",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(ttft_seconds_bucket[5m])) by (le))", "legendFormat": "P50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(ttft_seconds_bucket[5m])) by (le))", "legendFormat": "P95" },
+        { "expr": "histogram_quantile(0.99, sum(rate(ttft_seconds_bucket[5m])) by (le))", "legendFormat": "P99" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{"color":"green","value":null},{"color":"yellow","value":2},{"color":"red","value":5}] } }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "title": "SSE 活跃连接数",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sse_active_connections", "legendFormat": "当前连接" }
+      ],
+      "fieldConfig": {
+        "defaults": { "thresholds": { "mode": "absolute", "steps": [{"color":"green","value":null},{"color":"red","value":10}] } }
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 }
+    },
+    {
+      "title": "SSE 请求总数",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(sse_requests_total)", "legendFormat": "总请求数" }
+      ],
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 }
+    },
+    {
+      "title": "工具耗时 P95（按工具分组）",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(tool_latency_seconds_bucket[5m])) by (le, tool))", "legendFormat": "{{tool}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "title": "工具调用成功率",
+      "type": "piechart",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (ok) (rate(tool_calls_total[5m]))", "legendFormat": "{{ok}}" }
+      ],
+      "gridPos": { "h": 9, "w": 6, "x": 12, "y": 8 }
+    },
+    {
+      "title": "LLM Token 速率（input/output/min）",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (kind) (rate(llm_tokens_total[5m])) * 60", "legendFormat": "{{kind}}/min" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "gridPos": { "h": 9, "w": 6, "x": 18, "y": 8 }
+    },
+    {
+      "title": "端到端延迟 P50/P95",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(e2e_latency_seconds_bucket[5m])) by (le))", "legendFormat": "P50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(e2e_latency_seconds_bucket[5m])) by (le))", "legendFormat": "P95" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{"color":"green","value":null},{"color":"yellow","value":3},{"color":"red","value":10}] } }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 }
+    },
+    {
+      "title": "限流触发数",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(rate_limited_total[5m]))", "legendFormat": "rate/s" }
+      ],
+      "fieldConfig": {
+        "defaults": { "thresholds": { "mode": "absolute", "steps": [{"color":"green","value":null},{"color":"red","value":0.1}] } }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["ai-service"],
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "AI 服务可观测面板",
+  "templating": { "list": [] },
+  "timepicker": {},
+  "timezone": "browser",
+  "uid": "ai-service-observability",
+  "version": 1
+}
+

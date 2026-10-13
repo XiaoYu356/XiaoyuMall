@@ -67,5 +67,10 @@ order:
   timeout-minutes: 15
   stock-retry-times: 3
 
+# 内部服务间共享密钥（AI 服务直连时经 X-Internal-Secret 头携带）；
+# 生产环境应改为环境变量注入而非明文
+internal:
+  secret: xiaoyu-internal-2026
+
 knife4j:
   enable: true

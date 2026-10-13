@@ -1,0 +1,292 @@
+"""FAQ 知识库 v3 构建脚本（Task 5）。
+
+运行方式（cwd=ai-service）：
+    ai-service\\.venv\\Scripts\\python.exe -m scripts.build_faq_index
+
+流程（设计文档 docs/ai-service-redesign-v3.md §13）：
+1. 只读导入种子 scripts/faq_seed.py（39 条，2026-10 从 19 条扩充）
+2. 每条种子调快速模型（json_mode）生成 3 条 similar_questions；
+   单条失败回退人工兜底 FALLBACK_SIMILAR 并告警，不中断；
+   与兜底问法合并去重（丢弃与原问题相同的，上限 5 条）
+3. 每条 embed_texts([question] + similar)：question 向量存 question_vector
+   （similar 仅参与 BM25 召回，本版不存向量，见 §13.2 要点）
+4. ensure_faq_index_v3(recreate=True) 重建 mall_faq_v3 → bulk 导入
+   （字段以 bulk_index_faq_v3 契约为准：question/similar_questions/answer/
+   category/tags/version/question_vector；ES _id 自动生成，search_faq_v3
+   返回的 id 即该 _id）
+5. switch_faq_alias() 原子切换 alias mall_faq → mall_faq_v3
+6. 冒烟：search_faq_v3("退货政策") 打印 top3 并断言非空
+
+幂等：每次先删 mall_faq_v3 再重建，可重复执行且结果一致。
+"""
+import asyncio
+import json
+import logging
+import sys
+
+import httpx
+from langchain_openai import ChatOpenAI
+
+from app.core.config import settings
+from app.core.embeddings import embed_text, embed_texts
+from app.core.es_client import (
+    bulk_index_faq_v3,
+    ensure_faq_index_v3,
+    search_faq_v3,
+    switch_faq_alias,
+)
+from scripts.faq_seed import FAQ_ITEMS
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger("build_faq_index")
+
+# 人工兜底同义问法（LLM 生成失败时仍有可用的召回素材，保证每条 2~3 条起）
+# key 与 faq_seed.FAQ_ITEMS 中 question 完全一致
+FALLBACK_SIMILAR: dict[str, list[str]] = {
+    "你们的退货政策是什么？多久内可以退货？": ["怎么退货", "退货流程是什么", "东西不想要了怎么退"],
+    "申请退款后多久能到账？": ["退款什么时候到账", "钱多久退回来", "退货了钱几天能到"],
+    "收到的商品有质量问题怎么办？可以换货吗？": ["东西坏了怎么办", "买到的商品是坏的能换吗", "质量有问题怎么换货"],
+    "你们用什么快递发货？多久能送到？": ["发什么快递", "几天能到货", "物流一般多久送到"],
+    "运费怎么算？满多少钱包邮？": ["运费多少", "满多少包邮", "不包邮的话邮费谁出"],
+    "可以修改收货地址吗？订单发货了还能改吗？": ["怎么改收货地址", "下单后地址填错了能改吗", "发货了还能改地址吗"],
+    "你们支持哪些支付方式？": ["可以用什么付款", "能微信支付吗", "支持支付宝付款吗"],
+    "下单后一直没支付，订单会被取消吗？": ["订单不付款会自动取消吗", "下了单没付钱多久取消", "没支付的订单保留多久"],
+    "会员等级是怎么划分的？怎么升级？": ["会员等级怎么分", "怎么升会员", "黄金会员要消费多少"],
+    "积分是怎么获得的？积分能干什么用？": ["积分怎么攒", "积分有什么用", "怎么拿积分"],
+    "优惠券怎么领取和使用？": ["券在哪里领", "优惠券怎么用", "怎么领优惠券"],
+    "优惠券有使用门槛和有效期吗？退款后券会退回吗？": ["优惠券有有效期吗", "满减券有门槛吗", "退款后优惠券还回来吗"],
+    "为什么我抢不到优惠券？显示已领完是怎么回事？": ["优惠券显示已领完", "为什么领不了券", "抢券总是抢不到怎么回事"],
+    "可以开发票吗？电子发票怎么开？": ["怎么开发票", "能开电子发票吗", "买完东西发票在哪开"],
+    "忘记密码了怎么办？怎么修改密码？": ["密码忘了怎么找回", "怎么改密码", "登录密码忘了怎么办"],
+    "收不到验证码是什么原因？": ["验证码收不到怎么办", "手机收不到短信验证码", "为什么验证码一直不来"],
+    "怎么申请价格保护？买完降价了怎么办？": ["买完就降价了怎么办", "价保怎么申请", "刚买就降价能退差价吗"],
+    "商品卖断货了怎么办？什么时候补货？": ["没货了什么时候补货", "断货了怎么办", "缺货什么时候有货"],
+    "如何联系人工客服？客服工作时间是什么时候？": ["怎么转人工客服", "人工客服几点上班", "怎么找人工客服"],
+    # --- 扩充条目（2026-10，19→39 条）兜底问法 ---
+    "怎么注销账号？注销后数据还能恢复吗？": ["怎么注销账号", "账号能注销吗", "不想用了怎么删除账号"],
+    "怎么更换绑定的手机号或微信？": ["怎么换绑手机号", "微信怎么解绑", "手机号不用了怎么换绑"],
+    "我的个人信息安全吗？你们如何保护隐私？": ["个人信息会泄露吗", "隐私安全吗", "我的数据怎么保护"],
+    "优惠券过期了还能用吗？快过期了会提醒吗？": ["优惠券过期了还能用吗", "券过期了怎么办", "优惠券快到期会提醒吗"],
+    "优惠券可以叠加使用吗？能和积分、会员折扣一起用吗？": ["优惠券能叠加吗", "两张券可以一起用吗", "券和积分能同时用吗"],
+    "退货运费谁承担？7天无理由退货要自己出运费吗？": ["退货要运费吗", "7天无理由退货运费谁出", "退货运费怎么算"],
+    "退货流程是怎样的？怎么寄回商品？": ["退货怎么寄回去", "退货流程怎么操作", "退回去的快递单号填哪里"],
+    "迟迟不发货怎么办？可以催发货吗？": ["为什么还不发货", "怎么催商家发货", "超过多久不发货可以投诉"],
+    "收货时发现包装破损怎么办？可以拒收吗？": ["快递破了能拒收吗", "包装破损怎么处理", "收到货是坏的能拒收吗"],
+    "支持港澳台或海外配送吗？": ["香港能发货吗", "海外可以下单吗", "台湾能寄吗"],
+    "怎么取消订单？哪些订单不能取消？": ["订单怎么取消", "下错单了怎么取消", "已经付款的订单能取消吗"],
+    "下单后可以修改商品数量或规格吗？": ["能改订单数量吗", "拍错规格了怎么办", "下单后能换颜色吗"],
+    "预售商品是什么？什么时候发货？": ["预售是什么意思", "预售商品多久发货", "预售的订单不想要了能退吗"],
+    "秒杀活动有什么规则？抢到的秒杀商品可以退吗？": ["秒杀有什么规则", "秒杀商品能退货吗", "限时抢购怎么玩"],
+    "拼团怎么玩？人没拼满怎么办？": ["拼团规则是什么", "拼团没人拼怎么办", "拼团失败钱退吗"],
+    "新用户有什么优惠？有学生优惠吗？": ["新用户有优惠吗", "学生有折扣吗", "新人礼包怎么领"],
+    "积分会过期吗？怎么查询积分明细？": ["积分会过期吗", "积分明细在哪里看", "积分多久清零"],
+    "怎么评价商品？评价能修改或删除吗？": ["怎么评价商品", "评价了能改吗", "晒单有什么奖励"],
+    "有礼品卡或购物卡吗？怎么使用？": ["有购物卡吗", "礼品卡怎么用", "礼品卡余额怎么查"],
+    "发票抬头开错了怎么办？能换开吗？": ["发票抬头错了怎么改", "发票能重开吗", "开错发票怎么办"],
+    # --- 网络调研补充条目（2026-10-10，39→44 条）兜底问法 ---
+    "商品拆封了还能7天无理由退货吗？7天从哪天开始算？": ["拆封了还能退货吗", "7天无理由从哪天算", "开封了能无理由退货吗"],
+    "怎么申请换货？换货流程和运费是怎么规定的？": ["怎么换货", "换货要运费吗", "尺码不合适怎么换"],
+    "为什么我的优惠券下单时不能使用？": ["优惠券用不了怎么办", "下单时券为什么是灰的", "为什么券用不了"],
+    "一直没收到货怎么办？快递显示签收了但我没收到？": ["没收到货怎么办", "快递丢了谁负责", "显示签收但没收到货"],
+    "和商家协商不一致怎么办？可以申请平台介入吗？": ["怎么申请平台介入", "客服不给解决怎么办", "商家不理人怎么投诉"],
+}
+
+# 标签（keyword，与 FAQ_ITEMS 顺序一一对应），供后续按类目过滤/运营统计
+TAGS: list[list[str]] = [
+    ["退货", "7天无理由"],
+    ["退款", "到账时间"],
+    ["质量问题", "换货"],
+    ["快递", "配送时效"],
+    ["运费", "包邮"],
+    ["修改地址", "订单"],
+    ["支付方式"],
+    ["订单取消", "支付时限"],
+    ["会员等级", "升级"],
+    ["积分", "获取途径"],
+    ["优惠券", "领取使用"],
+    ["优惠券", "有效期"],
+    ["优惠券", "限量发放"],
+    ["发票", "电子发票"],
+    ["密码", "账号安全"],
+    ["验证码", "短信"],
+    ["价格保护", "退差价"],
+    ["缺货", "补货"],
+    ["人工客服", "工作时间"],
+    # --- 扩充条目（与 FAQ_ITEMS 顺序一一对应，追加在尾部） ---
+    ["注销", "账号安全"],
+    ["换绑", "账号安全"],
+    ["隐私", "信息安全"],
+    ["优惠券", "过期"],
+    ["优惠券", "叠加规则"],
+    ["退货运费", "无理由退货"],
+    ["退货流程", "寄回"],
+    ["催发货", "发货时效"],
+    ["拒收", "破损"],
+    ["港澳台", "配送范围"],
+    ["取消订单", "退款"],
+    ["修改订单", "规格"],
+    ["预售", "发货时间"],
+    ["秒杀", "限时抢购"],
+    ["拼团", "成团"],
+    ["新人专享", "学生优惠"],
+    ["积分", "有效期"],
+    ["评价", "晒单"],
+    ["礼品卡", "购物卡"],
+    ["发票", "换开"],
+    # --- 网络调研补充条目（与 FAQ_ITEMS 顺序一一对应，追加在尾部） ---
+    ["拆封退货", "7天无理由起算"],
+    ["换货", "换货运费"],
+    ["优惠券", "不可用原因"],
+    ["快递丢失", "未收到货"],
+    ["平台介入", "维权"],
+]
+
+# LLM 生成同义问法的提示词（json_mode：提示词里需含 "JSON" 字样）
+_LLM_SYSTEM_PROMPT = """你是电商客服知识库编辑。给定一条 FAQ 标准问题，生成 3 条用户真实的同义问法。
+要求：
+- 口语化、措辞多样，可用"咋""能不能""多少"等日常说法，不要书面腔
+- 意思与原问题一致，不要引入原问题之外的新信息
+- 每条 5~20 字，不要以"请问"开头，也不要与原问题雷同
+严格只输出 JSON 对象（不要任何多余说明），格式：{"similar_questions": ["问法1", "问法2", "问法3"]}"""
+
+
+def _gen_llm() -> ChatOpenAI:
+    """同义问法生成用模型：快速模型 + 低温度 + 关闭思考（与 consolidator 配置一致）。"""
+    return ChatOpenAI(
+        model=settings.OPENAI_MODEL_FAST,
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.OPENAI_API_BASE,
+        temperature=0.2,
+        extra_body={"enable_thinking": False},
+    )
+
+
+def _extract_json_object(text: str) -> dict:
+    """宽容解析模型输出为 JSON 对象（容忍 ```json 围栏）。"""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return json.loads(text.strip())
+
+
+async def _llm_similar(llm: ChatOpenAI, question: str) -> list[str]:
+    """单条调 LLM 生成同义问法，返回字符串列表（解析失败/格式不对抛异常，由调用方兜底）。"""
+    response = await llm.bind(response_format={"type": "json_object"}).ainvoke(
+        [("system", _LLM_SYSTEM_PROMPT), ("human", question)]
+    )
+    data = _extract_json_object(response.content)
+    items = data.get("similar_questions")
+    if not isinstance(items, list) or not items:
+        raise ValueError(f"LLM 返回缺少 similar_questions 列表: {response.content[:120]}")
+    return [str(x).strip() for x in items if str(x).strip()]
+
+
+def _merge_similar(question: str, fallback: list[str], generated: list[str],
+                   limit: int = 5) -> list[str]:
+    """合并兜底 + LLM 生成：丢弃与原问题相同的，去重保序，上限 limit 条。"""
+    seen: set[str] = set()
+    merged: list[str] = []
+    for cand in [*fallback, *generated]:
+        text = str(cand).strip()
+        if not text or text == question.strip() or text in seen:
+            continue
+        seen.add(text)
+        merged.append(text)
+        if len(merged) >= limit:
+            break
+    return merged
+
+
+async def gen_similar_questions() -> list[list[str]]:
+    """逐条生成同义问法；单条失败回退人工兜底并告警，不中断整体流程。"""
+    total = len(FAQ_ITEMS)
+    llm = _gen_llm()
+    result: list[list[str]] = []
+    llm_ok = 0
+    for i, item in enumerate(FAQ_ITEMS, start=1):
+        question = item["question"]
+        generated: list[str] = []
+        try:
+            generated = await _llm_similar(llm, question)
+            llm_ok += 1
+        except Exception as e:  # noqa: BLE001 —— 单条失败必须兜底继续
+            logger.warning("第 %d/%d 条 LLM 生成失败，使用人工兜底: %s", i, total, e)
+        merged = _merge_similar(question, FALLBACK_SIMILAR.get(question, []), generated)
+        result.append(merged)
+        logger.info("同义问法 第%d/%d 条完成（LLM 生成 %d 条，合并后 %d 条）",
+                    i, total, len(generated), len(merged))
+    logger.info("LLM 生成成功 %d/%d 条（失败条目已用 FALLBACK_SIMILAR 兜底）", llm_ok, total)
+    return result
+
+
+async def _remove_legacy_concrete_index() -> None:
+    """迁移兜底（一次性）：v2 遗留的 mall_faq 是普通索引，ES 不允许创建与其同名的
+    alias（invalid_alias_name_exception），须删除后 switch_faq_alias 才能建 alias。
+    该索引 19 条数据与 faq_seed.py 同源、可随时用 scripts/import_faq.py 重建；
+    删除后对外检索统一走 alias（§13.2）。幂等：mall_faq 已是 alias 时直接跳过。
+    """
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        alias = await client.get(f"{settings.ES_URL}/_alias/mall_faq")
+        if alias.status_code == 200:
+            logger.info("mall_faq 已是 alias，无需迁移兜底")
+            return
+        head = await client.head(f"{settings.ES_URL}/mall_faq")
+        if head.status_code != 200:
+            return  # 既非 alias 也非普通索引（全新环境），无事可做
+        resp = await client.delete(f"{settings.ES_URL}/mall_faq")
+        if resp.status_code != 200:
+            raise RuntimeError(f"删除 v2 遗留索引 mall_faq 失败: {resp.text[:200]}")
+        logger.warning("已删除 v2 遗留普通索引 mall_faq（数据源自 faq_seed.py 可重建），"
+                       "为创建同名 alias 让路")
+
+
+async def main() -> int:
+    total = len(FAQ_ITEMS)
+    logger.info("=== FAQ 知识库 v3 构建开始：共 %d 条种子 ===", total)
+
+    # 1) 生成每条种子的相似问题
+    similar_all = await gen_similar_questions()
+
+    # 2) 向量化并组装文档：question + similar 一起送 embed_texts（内部自动 10 条分批）
+    docs: list[dict] = []
+    for i, (item, similar) in enumerate(zip(FAQ_ITEMS, similar_all), start=1):
+        vectors = await embed_texts([item["question"], *similar])
+        docs.append({
+            "question": item["question"],
+            "similar_questions": similar,
+            "answer": item["answer"],
+            "category": item["category"],
+            "tags": TAGS[i - 1],
+            "version": 3,
+            # 只存 question 的向量（问法对问法匹配更准）；similar 仅参与 BM25，本版不存向量
+            "question_vector": vectors[0],
+        })
+        logger.info("向量化 第%d/%d 条完成（维度=%d）", i, total, len(vectors[0]))
+
+    # 3) 重建索引（删 mall_faq_v3 → 按 §13.2 mapping 重建）
+    await ensure_faq_index_v3(recreate=True)
+
+    # 4) bulk 导入
+    imported = await bulk_index_faq_v3(docs)
+    logger.info("bulk 导入完成：%d 条", imported)
+    assert imported == total, f"导入条数不符：期望 {total} 实际 {imported}"
+
+    # 5) alias 原子切换：mall_faq → mall_faq_v3（旧索引解绑；含一次性迁移兜底）
+    await _remove_legacy_concrete_index()
+    await switch_faq_alias()
+
+    # 6) 冒烟检索：命中售后/退款类条目即视为通过
+    query = "退货政策"
+    hits = await search_faq_v3(query, await embed_text(query), top_k=3)
+    logger.info("冒烟检索 '%s' 命中 %d 条：", query, len(hits))
+    for rank, h in enumerate(hits, start=1):
+        print(f"top{rank}: [{h['category']}] {h['question']} (score={h['score']:.4f})")
+    assert hits, "冒烟检索未命中任何文档"
+    logger.info("=== FAQ 知识库 v3 构建完成 ===")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))

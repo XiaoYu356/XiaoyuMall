@@ -5,11 +5,11 @@ export const getOrderStats = () => {
 }
 
 export const getOrderList = (params) => {
-  return request({ url: '/v1/orders', method: 'get', params })
+  return request({ url: '/v1/admin/orders', method: 'get', params })
 }
 
 export const getOrderById = (orderId) => {
-  return request({ url: `/v1/orders/${orderId}`, method: 'get' })
+  return request({ url: `/v1/admin/orders/${orderId}`, method: 'get' })
 }
 
 export const createOrder = (data) => {
@@ -17,7 +17,7 @@ export const createOrder = (data) => {
 }
 
 export const cancelOrder = (orderId) => {
-  return request({ url: `/v1/orders/${orderId}/cancel`, method: 'post' })
+  return request({ url: `/v1/admin/orders/${orderId}/cancel`, method: 'post' })
 }
 
 export const shipOrder = (orderId) => {

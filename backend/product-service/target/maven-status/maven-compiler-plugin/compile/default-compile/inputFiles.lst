@@ -1,13 +1,16 @@
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\entity\ProductVO.java
+D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mq\ProductChangeMessage.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\es\ProductDocument.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mapper\BrandMapper.java
+D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mq\ProductEsSyncDlqConsumer.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\config\MyMetaObjectHandler.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\config\StockInitRunner.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\service\ProductService.java
+D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\config\SaTokenConfig.java
+D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mq\ProductEsSyncConsumer.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mapper\ProductMapper.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\controller\AIController.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\controller\ProductController.java
-D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\feign\AIServiceClient.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\config\RedisConfig.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\entity\Brand.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\entity\ProductSku.java
@@ -26,3 +29,4 @@ D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\dto\Pr
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\ProductServiceApplication.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\service\impl\ProductServiceImpl.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\es\ProductSearchService.java
+D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mq\ProductEsSyncProducer.java

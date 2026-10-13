@@ -1,0 +1,63 @@
+{
+  "generated_at": "2026-10-11T22:52:42.554357",
+  "elapsed_s": 613.4,
+  "summary": {
+    "thresholds": {
+      "T_HIGH": 0.529,
+      "T_MID": 0.4961,
+      "T_LOW": 0.0963,
+      "rules": "T_HIGH=neg_max P99；T_MID=neg_max P95；T_LOW=neg_max P50"
+    },
+    "validation": {
+      "positive_survival_at_T_MID": 0.997,
+      "positive_survival_target": 0.95,
+      "ood_false_admission_at_T_MID": 0.067,
+      "ood_high_conf_at_T_HIGH": 0.033,
+      "eer_reference": 0.84,
+      "distribution_conflict_warning": false
+    },
+    "distributions": {
+      "positive_best_gold_score": {
+        "n": 355,
+        "mean": 0.9693,
+        "p5": 0.8799,
+        "p25": 0.9586,
+        "p50": 0.9812,
+        "p75": 0.9962,
+        "p90": 0.9999,
+        "p95": 1.0,
+        "p99": 1.0
+      },
+      "negative_max_score": {
+        "n": 30,
+        "mean": 0.1528,
+        "p5": 0.0012,
+        "p25": 0.0037,
+        "p50": 0.0963,
+        "p75": 0.2371,
+        "p90": 0.4086,
+        "p95": 0.4961,
+        "p99": 0.529
+      }
+    },
+    "rrf_top3": {
+      "n": 356,
+      "hit@1": 0.879,
+      "recall@3": 0.957,
+      "mrr": 0.925
+    },
+    "rerank_top3": {
+      "n": 356,
+      "hit@1": 0.983,
+      "recall@3": 0.981,
+      "mrr": 0.99
+    },
+    "rerank_graded": {
+      "n": 356,
+      "hit@1": 0.983,
+      "recall@3": 0.98,
+      "mrr": 0.99
+    },
+    "killed_in_domain": []
+  }
+}

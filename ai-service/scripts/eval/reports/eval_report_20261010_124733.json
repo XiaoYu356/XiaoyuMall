@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-10-10T12:47:33",
+  "model": "qwen3.8-max",
+  "summary": {
+    "total": 1,
+    "ran": 1,
+    "passed": 1,
+    "pass_rate": 1.0,
+    "by_category": {
+      "aftersale": {
+        "total": 1,
+        "passed": 1
+      }
+    },
+    "judge": {
+      "count": 1,
+      "avg_relevance": 5.0,
+      "avg_groundedness": 5.0,
+      "judge_fail": 0
+    },
+    "latency": {
+      "avg_total_ms": 9468,
+      "avg_ttft_ms": null
+    },
+    "tokens": {
+      "input": 2267,
+      "output": 247
+    }
+  },
+  "results": [
+    {
+      "id": "aftersale_reject_001",
+      "category": "aftersale",
+      "q": "订单 ORD20261010124012489BA2 收到货了质量有问题，我要退货退款",
+      "tools_called": [
+        "submit_aftersale"
+      ],
+      "cards": [],
+      "citations": [],
+      "text": "已收到您的反馈，不过这次退货退款申请**没有提交**（您在确认环节取消了）。\n\n如果后续还想办理，或者想改成仅退款、需要人工客服协助，随时告诉我～",
+      "interrupt": true,
+      "resumed": false,
+      "blocked": false,
+      "input_tokens": 2267,
+      "output_tokens": 247,
+      "ttft_ms": null,
+      "total_ms": 9468,
+      "checks": [
+        [
+          "tools_any",
+          true,
+          "期望任一 ['submit_aftersale']，实际 ['submit_aftersale']"
+        ],
+        [
+          "interrupt",
+          true,
+          "期望 True，实际 True"
+        ],
+        [
+          "resume_done",
+          true,
+          "期望 resume=False，实际 False"
+        ],
+        [
+          "min_text_len",
+          true,
+          "期望文本 ≥4 字，实际 73"
+        ]
+      ],
+      "passed": true,
+      "judge": {
+        "relevance": 5,
+        "groundedness": 5,
+        "conciseness": 5,
+        "verdict": "pass",
+        "reason": "助手如实说明用户拒绝确认导致退货退款申请未提交，回应相关、依据背景且不编造，表达简洁。"
+      }
+    }
+  ]
+}

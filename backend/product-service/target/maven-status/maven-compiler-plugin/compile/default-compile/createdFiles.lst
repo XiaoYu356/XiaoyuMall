@@ -9,7 +9,9 @@ com\mall\product\mapper\ProductSkuMapper.class
 com\mall\product\feign\UserServiceClient.class
 com\mall\product\entity\Product.class
 com\mall\product\controller\AIController.class
+com\mall\product\mq\ProductEsSyncDlqConsumer.class
 com\mall\product\es\ProductDocument.class
+com\mall\product\mq\ProductEsSyncProducer.class
 com\mall\product\entity\Brand.class
 com\mall\product\entity\ProductCategory.class
 com\mall\product\mapper\ProductCategoryMapper.class
@@ -17,13 +19,15 @@ com\mall\product\mapper\BrandMapper.class
 com\mall\product\config\ElasticsearchConfig.class
 com\mall\product\es\ProductSearchService.class
 com\mall\product\entity\ProductVO.class
-com\mall\product\feign\AIServiceClient.class
+com\mall\product\mq\ProductEsSyncConsumer.class
 com\mall\product\config\MinioConfig.class
 com\mall\product\controller\UploadController.class
 com\mall\product\service\impl\ProductServiceImpl.class
 com\mall\product\dto\ProductCreateDTO.class
+com\mall\product\mq\ProductChangeMessage.class
 com\mall\product\dto\CategoryCreateDTO.class
 com\mall\product\satoken\StpInterfaceImpl.class
 com\mall\product\mapper\ProductMapper.class
 com\mall\product\config\StockInitRunner.class
+com\mall\product\config\SaTokenConfig.class
 com\mall\product\config\RedisConfig.class

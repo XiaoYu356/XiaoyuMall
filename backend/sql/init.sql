@@ -552,3 +552,45 @@ INSERT IGNORE INTO `user_coupon` (`id`, `user_id`, `template_id`, `coupon_code`,
 (4, 2, 5, 'UC20250101000004', 1, 1, '2026-06-30 23:59:59'),
 (5, 3, 3, 'UC20250101000005', 0, NULL, '2026-06-30 23:59:59'),
 (6, 3, 4, 'UC20250101000006', 0, NULL, '2026-06-30 23:59:59');
+
+-- 6. 售后数据（mall_order 库）
+USE mall_order;
+
+-- 售后单表 (对应 com.mall.order.entity.AftersaleOrder)
+CREATE TABLE IF NOT EXISTS `aftersale_order` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `aftersale_no` varchar(50) NOT NULL COMMENT '售后单号',
+  `order_id` bigint(20) NOT NULL COMMENT '原订单ID',
+  `order_no` varchar(50) NOT NULL COMMENT '原订单号',
+  `user_id` bigint(20) NOT NULL COMMENT '用户ID',
+  `type` tinyint(4) NOT NULL COMMENT '类型:1-仅退款,2-退货退款,3-换货',
+  `reason` varchar(500) NOT NULL COMMENT '申请原因',
+  `description` varchar(1000) DEFAULT NULL COMMENT '问题描述',
+  `status` tinyint(4) NOT NULL DEFAULT '0' COMMENT '状态:0-待审核,1-审核通过(待寄回),2-退货中,3-仓库已签收,4-退款中,5-已完成,6-已驳回',
+  `refund_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '退款金额',
+  `audit_remark` varchar(500) DEFAULT NULL COMMENT '审核备注',
+  `audit_time` datetime DEFAULT NULL COMMENT '审核时间',
+  `refund_time` datetime DEFAULT NULL COMMENT '退款完成时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_aftersale_no` (`aftersale_no`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='售后单表';
+
+-- AI 写操作审计表（ai-service HITL 确认后的真实执行留痕）
+CREATE TABLE IF NOT EXISTS `ai_action_audit` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(32) NOT NULL COMMENT '用户ID',
+  `session_id` varchar(64) DEFAULT NULL COMMENT 'AI会话ID',
+  `tool_name` varchar(64) NOT NULL COMMENT '工具名',
+  `order_no` varchar(50) DEFAULT NULL COMMENT '订单号',
+  `params` text COMMENT '调用参数(JSON)',
+  `result` varchar(16) NOT NULL COMMENT '结果:success-已执行,rejected-用户拒绝,failed-执行失败',
+  `detail` varchar(1000) DEFAULT NULL COMMENT '结果说明',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_order_no` (`order_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI写操作审计表';

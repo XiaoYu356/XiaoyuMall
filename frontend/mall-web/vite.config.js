@@ -12,6 +12,16 @@ export default defineConfig({
   server: {
     port: 3001,
     proxy: {
+      '/api/v1/ai/stream': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,
+        headers: {
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        }
+      },
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true

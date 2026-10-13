@@ -50,6 +50,18 @@ const routes = [
         name: 'Orders',
         component: () => import('@/views/orders/index.vue'),
         meta: { title: '订单管理', icon: 'Document', permission: 'order:view' }
+      },
+      {
+        path: 'knowledge/gaps',
+        name: 'KnowledgeGaps',
+        component: () => import('@/views/knowledge-gaps/index.vue'),
+        meta: { title: '知识库缺口', icon: 'WarningFilled' }
+      },
+      {
+        path: 'knowledge/faqs',
+        name: 'KnowledgeFaqs',
+        component: () => import('@/views/knowledge-faqs/index.vue'),
+        meta: { title: 'FAQ管理', icon: 'Reading' }
       }
     ]
   }

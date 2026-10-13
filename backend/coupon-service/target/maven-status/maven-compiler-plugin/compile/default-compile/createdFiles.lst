@@ -13,6 +13,7 @@ com\mall\coupon\service\impl\CouponServiceImpl.class
 com\mall\coupon\mq\CouponDlqConsumer.class
 com\mall\coupon\mq\CouponMessageProducer.class
 com\mall\coupon\mapper\CouponTemplateMapper.class
+com\mall\coupon\config\SaTokenConfig.class
 com\mall\coupon\config\RedisConfig.class
 com\mall\coupon\config\CouponStockInitRunner.class
 com\mall\coupon\entity\CouponTemplate.class

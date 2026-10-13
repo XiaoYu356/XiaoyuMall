@@ -1,266 +1,63 @@
-# 智能百货平台 - 多智能体购物助手服务
+# 智能百货平台 - AI 购物助手服务（v3）
 
 ## 项目简介
 
-基于多智能体协作的智能购物助手系统，为用户提供商品分析、价格评估、优惠推荐等智能服务。
+单 Agent（ReAct）+ agentic RAG 的智能购物助手：一个 Agent 挂载五域 11 个工具（商品/优惠/订单/售后/知识），由模型自主决定是否检索知识库（search_faq，CRAG 式自检），无意图分类前置。设计文档见 `docs/ai-service-redesign-v3.md`（仓库根目录）。
 
 ## 技术栈
 
-- **Python 3.11**
-- **FastAPI** - 高性能Web框架
-- **LangChain** - LLM应用开发框架
-- **LangGraph** - 多智能体工作流编排
-- **OpenAI API** - 大语言模型接口
+- **Python 3.11** + **FastAPI**
+- **LangGraph** - 单 Agent（create_react_agent）+ Redis Checkpointer（AsyncRedisSaver，降级 MemorySaver）
+- **Elasticsearch** - FAQ 三路召回（BM25 question + knn + BM25 similar_questions）→ RRF 融合
+- **Langfuse v2**（可选，trace）/ **prometheus-client**（/metrics）/ **structlog**（JSON 日志）
 
 ## 项目结构
 
 ```
 ai-service/
-├── agents/                 # 智能体模块
-│   ├── base_agent.py      # 基础智能体类
-│   ├── product_analyst_agent.py    # 商品分析智能体
-│   ├── price_analyst_agent.py      # 价格分析智能体
-│   ├── coupon_expert_agent.py      # 优惠券专家智能体
-│   └── recommendation_advisor_agent.py  # 推荐顾问智能体
-├── core/                   # 核心模块
-│   ├── coordinator.py     # 智能体协调器
-│   └── workflow.py        # 工作流编排
-├── api/                    # API接口
-│   ├── routes.py          # 路由定义
-│   └── schemas.py         # 数据模型
-├── config/                 # 配置模块
-│   └── settings.py        # 配置管理
-├── main.py                 # 应用入口
-├── requirements.txt        # 依赖列表
-├── Dockerfile              # Docker配置
-└── .env.example            # 环境变量示例
+├── app/                    # v3 唯一代码位置
+│   ├── main.py             # FastAPI 入口（lifespan：checkpointer→graph→http client）
+│   ├── core/               # config / observability / security / http_client / audit / es_client / embeddings
+│   ├── graph/              # state / checkpointer / builder / nodes/agent（单 Agent 图）
+│   ├── tools/              # 五域 11 工具（product/coupon/order/aftersale/faq；aftersale 含 HITL interrupt）
+│   ├── memory/             # profile（偏好）/ history（会话）/ consolidator（游标存 Redis）
+│   └── api/                # chat（SSE v3）/ resume（幂等）/ feedback / health / memory 兼容
+├── scripts/
+│   ├── faq_seed.py         # FAQ 种子数据
+│   ├── build_faq_index.py  # FAQ v3 知识库构建（幂等重建 + alias 切换）
+│   └── sql/v3_feedback.sql # ai_chat_feedback 建表
+└── requirements.txt
 ```
 
-## 多智能体架构
+## 启动
 
-```
-用户请求
-    │
-    ▼
-┌──────────────────┐
-│   协调器          │
-│ (Coordinator)     │
-└──────────────────┘
-    │
-    ├─────────────────┬─────────────────┐
-    ▼                 ▼                 ▼
-┌──────────┐   ┌──────────┐   ┌──────────┐
-│ 商品分析 │   │ 价格分析 │   │ 优惠券专家│
-│  Agent   │   │  Agent   │   │  Agent   │
-└──────────┘   └──────────┘   └──────────┘
-    │                 │                 │
-    └─────────────────┼─────────────────┘
-                      ▼
-            ┌──────────────────┐
-            │   推荐顾问        │
-            │     Agent        │
-            └──────────────────┘
-                      │
-                      ▼
-                最终推荐结果
+```powershell
+cd d:\code\XiaoyuMall\ai-service
+.venv\Scripts\python.exe -m app.main   # 默认 8000 端口；$env:PORT 可覆盖
 ```
 
-## 智能体说明
+前置：Redis 8+（含 RediSearch 模块）、ES 9201（mall_faq_v3 索引已建）、Java 微服务 8081-8084、`.env` 配置 LLM key。
 
-### 1. 商品分析智能体 (ProductAnalystAgent)
-- **角色**: 商品分析师
-- **职责**: 分析商品特点、品质、适用场景
-- **输出**: 商品分析报告
+## 主要接口
 
-### 2. 价格分析智能体 (PriceAnalystAgent)
-- **角色**: 价格分析师
-- **职责**: 分析价格趋势、历史价格、性价比
-- **输出**: 价格分析报告
+| 接口 | 说明 |
+|------|------|
+| `GET /api/v3/chat/stream?q=&session_id=` | SSE v3：meta / tool / product_card / citation / llm_chunk / interrupt / complete / error |
+| `POST /api/v3/resume` | HITL 确认恢复（Redis SETNX 幂等，重复提交 409） |
+| `POST /api/v3/feedback` | 用户反馈 → ai_chat_feedback |
+| `GET /api/v3/health`、`GET /metrics` | 健康检查（含 checkpointer 模式）/ Prometheus 指标 |
+| `/api/v1/ai/memory/**` | v2 前端代理兼容端点（会话历史/偏好） |
 
-### 3. 优惠券专家智能体 (CouponExpertAgent)
-- **角色**: 优惠券分析师
-- **职责**: 查找可用优惠券、计算最优优惠方案
-- **输出**: 最优优惠策略
+## FAQ 知识库重建
 
-### 4. 推荐顾问智能体 (RecommendationAdvisorAgent)
-- **角色**: 购物顾问
-- **职责**: 综合分析给出购买建议
-- **输出**: 综合推荐报告
-
-## API接口
-
-### 1. 完整分析接口
-```http
-POST /api/v1/ai/analyze
-Content-Type: application/json
-
-{
-  "product_id": "1",
-  "user_id": "1",
-  "user_query": "我想买一款性价比高的手机"
-}
+```powershell
+.venv\Scripts\python.exe -m scripts.build_faq_index   # 幂等可重复执行
 ```
 
-### 2. 商品分析接口
-```http
-POST /api/v1/ai/analyze/product
-Content-Type: application/json
+## 安全
 
-{
-  "product_id": "1"
-}
-```
-
-### 3. 价格分析接口
-```http
-POST /api/v1/ai/analyze/price
-Content-Type: application/json
-
-{
-  "product_id": "1"
-}
-```
-
-### 4. 优惠券分析接口
-```http
-POST /api/v1/ai/analyze/coupon
-Content-Type: application/json
-
-{
-  "user_id": "1",
-  "order_amount": 999.00
-}
-```
-
-### 5. 工作流分析接口
-```http
-POST /api/v1/ai/workflow/analyze
-Content-Type: application/json
-
-{
-  "product_id": "1",
-  "user_id": "1",
-  "user_query": "帮我分析这款商品"
-}
-```
-
-### 6. 健康检查接口
-```http
-GET /api/v1/ai/health
-```
-
-## 快速开始
-
-### 1. 安装依赖
-```bash
-cd ai-service
-pip install -r requirements.txt
-```
-
-### 2. 配置环境变量
-```bash
-cp .env.example .env
-# 编辑.env文件，配置OpenAI API Key等
-```
-
-### 3. 启动服务
-```bash
-python main.py
-```
-
-### 4. 访问API文档
-```
-http://localhost:8000/docs
-```
-
-## Docker部署
-
-### 1. 构建镜像
-```bash
-docker build -t mall-ai-service .
-```
-
-### 2. 运行容器
-```bash
-docker run -d \
-  --name ai-service \
-  -p 8000:8000 \
-  -e OPENAI_API_KEY=your-api-key \
-  mall-ai-service
-```
-
-### 3. 使用Docker Compose
-```bash
-cd backend
-docker-compose up -d ai-service
-```
-
-## 与Spring Cloud集成
-
-AI服务已集成到Spring Cloud微服务架构中：
-
-1. **服务注册**: 通过Nacos进行服务注册与发现
-2. **服务调用**: Java服务通过HTTP调用AI服务接口
-3. **配置管理**: 通过环境变量配置服务地址
-
-### Java服务调用示例
-
-```java
-@FeignClient(name = "ai-service", url = "${ai.service.url}")
-public interface AIServiceClient {
-    
-    @PostMapping("/api/v1/ai/analyze")
-    AIAnalysisResult analyzeProduct(@RequestBody AIAnalysisRequest request);
-}
-```
-
-## 配置说明
-
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| OPENAI_API_KEY | OpenAI API密钥 | - |
-| OPENAI_API_BASE | OpenAI API地址 | https://api.openai.com/v1 |
-| OPENAI_MODEL | 使用的模型 | gpt-3.5-turbo |
-| REDIS_HOST | Redis主机 | localhost |
-| REDIS_PORT | Redis端口 | 6379 |
-| PRODUCT_SERVICE_URL | 商品服务地址 | http://localhost:8081 |
-| COUPON_SERVICE_URL | 优惠券服务地址 | http://localhost:8082 |
-
-## 扩展开发
-
-### 添加新的智能体
-
-1. 创建新的智能体类，继承`BaseAgent`
-2. 实现`execute`方法
-3. 在`coordinator.py`中注册智能体
-4. 在工作流中添加节点
-
-示例：
-
-```python
-from agents.base_agent import BaseAgent
-
-class CustomAgent(BaseAgent):
-    def __init__(self):
-        super().__init__(
-            name="自定义智能体",
-            role="自定义角色",
-            goal="自定义目标",
-            backstory="自定义背景"
-        )
-    
-    async def execute(self, context):
-        # 实现自定义逻辑
-        return {"result": "分析结果"}
-```
-
-## 注意事项
-
-1. **API密钥安全**: 请妥善保管OpenAI API密钥，不要提交到代码仓库
-2. **成本控制**: 合理使用LLM接口，避免不必要的调用
-3. **错误处理**: 生产环境请添加完善的错误处理和日志记录
-4. **性能优化**: 考虑添加缓存机制，减少重复分析
-
-## License
-
-MIT License
+- 身份：`X-User-Id` 头优先，回退 `user_id` query 参数
+- 限流：per-user 20 次/分钟 + 全局 200 QPS；SSE 连接 per-user ≤ 3
+- 输入：2000 字符截断 + prompt 注入规则检测（命中降级应答）
+- 写操作：LangGraph `interrupt()` 硬确认 + `ai_action_audit` 审计落库
+- 内部调用：`X-Internal-Secret` 头 + 超时 3s

@@ -16,6 +16,8 @@ import com.mall.coupon.mq.CouponMessageProducer;
 import com.mall.coupon.mq.CouponReceiveMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,12 @@ public class CouponServiceImpl implements CouponService {
 
     @Autowired(required = false)
     private CouponMessageProducer couponMessageProducer;
+
+    /**
+     * 优惠券秒杀演进版本开关: v0/v1/v2/v3，见application.yaml中coupon.receive.version
+     */
+    @Value("${coupon.receive.version:v3}")
+    private String receiveVersion;
 
     private static final String RECEIVE_SCRIPT =
             "local stockKey = KEYS[1] " +
@@ -351,6 +359,122 @@ public class CouponServiceImpl implements CouponService {
         }
 
         log.info("优惠券异步领取消息已发送: userId={}, templateId={}", userId, templateId);
+    }
+
+    @Override
+    public Map<String, Object> receiveCouponByStrategy(Long userId, Long templateId) {
+        return switch (receiveVersion) {
+            case "v0" -> buildSyncResult(receiveCouponV0(userId, templateId));
+            case "v1" -> buildSyncResult(receiveCouponV1(userId, templateId));
+            case "v2" -> buildSyncResult(receiveCoupon(userId, templateId));
+            default -> {
+                receiveCouponAsync(userId, templateId);
+                Map<String, Object> result = new HashMap<>();
+                result.put("status", "processing");
+                result.put("message", "领取请求已提交，正在处理中");
+                yield result;
+            }
+        };
+    }
+
+    /**
+     * V0基线版本：先查询再减少（存在并发缺陷，仅用于压测对比，不建议生产使用）
+     * 缺陷1-超卖: 查库存与写回非原子，库存剩1张时多个并发请求都能通过检查；
+     *             used_count基于旧值+1后全量updateById写回，并发下互相覆盖导致少加 → 实发数量超过totalCount
+     * 缺陷2-重复领取: 查重与插入非原子，同一用户并发请求可同时通过selectCount检查
+     *             （当前被user_coupon表的uk_user_template唯一索引兜底，但会抛DuplicateKeyException表现为500，而非友好提示）
+     */
+    private UserCoupon receiveCouponV0(Long userId, Long templateId) {
+        CouponTemplate template = couponTemplateMapper.selectById(templateId);
+        if (template == null) {
+            throw new BusinessException("优惠券不存在");
+        }
+        if (template.getStatus() != 1) {
+            throw new BusinessException("优惠券已禁用");
+        }
+        if (LocalDateTime.now(ZoneId.of("Asia/Shanghai")).isBefore(template.getStartTime()) ||
+            LocalDateTime.now(ZoneId.of("Asia/Shanghai")).isAfter(template.getEndTime())) {
+            throw new BusinessException("优惠券不在有效期内");
+        }
+
+        // 缺陷1：并发下多个线程同时读到剩余库存>0，都能通过检查
+        if (template.getTotalCount() - template.getUsedCount() <= 0) {
+            throw new BusinessException("优惠券已领完");
+        }
+
+        // 缺陷2：并发下同一用户的多个请求同时查到receivedCount=0，都能通过检查
+        Long receivedCount = userCouponMapper.selectCount(
+                new LambdaQueryWrapper<UserCoupon>()
+                        .eq(UserCoupon::getUserId, userId)
+                        .eq(UserCoupon::getTemplateId, templateId));
+        if (receivedCount >= template.getPerLimit()) {
+            throw new BusinessException("已达到领取上限");
+        }
+
+        UserCoupon userCoupon = new UserCoupon();
+        userCoupon.setUserId(userId);
+        userCoupon.setTemplateId(templateId);
+        userCoupon.setCouponCode("CPN" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        userCoupon.setStatus(0);
+        userCoupon.setExpireTime(template.getEndTime());
+        userCouponMapper.insert(userCoupon);
+
+        // 缺陷1体现：基于查询到的旧值+1后全量写回，并发下丢失更新
+        template.setUsedCount(template.getUsedCount() + 1);
+        couponTemplateMapper.updateById(template);
+
+        log.info("[V0先查再减] 领取优惠券成功: userId={}, templateId={}", userId, templateId);
+        return userCoupon;
+    }
+
+    /**
+     * V1数据库原子扣减：条件更新防超卖 + 唯一索引防重复领取
+     * 解决V0的并发缺陷，但所有请求仍打到数据库，行锁热点限制QPS上限
+     */
+    private UserCoupon receiveCouponV1(Long userId, Long templateId) {
+        CouponTemplate template = couponTemplateMapper.selectById(templateId);
+        if (template == null) {
+            throw new BusinessException("优惠券不存在");
+        }
+        if (template.getStatus() != 1) {
+            throw new BusinessException("优惠券已禁用");
+        }
+        if (LocalDateTime.now(ZoneId.of("Asia/Shanghai")).isBefore(template.getStartTime()) ||
+            LocalDateTime.now(ZoneId.of("Asia/Shanghai")).isAfter(template.getEndTime())) {
+            throw new BusinessException("优惠券不在有效期内");
+        }
+
+        UserCoupon userCoupon = new UserCoupon();
+        userCoupon.setUserId(userId);
+        userCoupon.setTemplateId(templateId);
+        userCoupon.setCouponCode("CPN" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        userCoupon.setStatus(0);
+        userCoupon.setExpireTime(template.getEndTime());
+
+        try {
+            return transactionTemplate.execute(status -> {
+                // 撞uk_user_template唯一索引说明该用户已领过
+                userCouponMapper.insert(userCoupon);
+                // 条件更新原子防超卖: UPDATE ... SET used_count=used_count+1 WHERE used_count<total_count
+                int updated = couponTemplateMapper.incrementUsedCount(templateId);
+                if (updated == 0) {
+                    status.setRollbackOnly();
+                    throw new BusinessException("优惠券已领完");
+                }
+                return userCoupon;
+            });
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException("已领取过该优惠券");
+        }
+    }
+
+    private Map<String, Object> buildSyncResult(UserCoupon userCoupon) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("status", "success");
+        result.put("couponId", userCoupon.getId());
+        result.put("couponCode", userCoupon.getCouponCode());
+        result.put("message", "领取成功");
+        return result;
     }
 
     private void syncSingleTemplateToRedis(CouponTemplate template) {

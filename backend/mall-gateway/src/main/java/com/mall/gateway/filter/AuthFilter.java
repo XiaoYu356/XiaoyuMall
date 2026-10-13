@@ -69,6 +69,9 @@ public class AuthFilter implements GlobalFilter, Ordered {
 
         String satoken = request.getHeaders().getFirst("satoken");
         if (satoken == null || satoken.isEmpty()) {
+            satoken = request.getQueryParams().getFirst("satoken");
+        }
+        if (satoken == null || satoken.isEmpty()) {
             log.warn("未携带token, path={}", path);
             return unauthorized(exchange.getResponse(), "请先登录");
         }

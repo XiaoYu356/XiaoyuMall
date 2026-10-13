@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  修复: 压测发现 GlobalExceptionHandler 对每个 BusinessException 打印完整堆栈,
+  Logback 控制台同步写 + 200并发 => 所有Tomcat线程串行排队写终端, 服务被打挂(~450 QPS)。
+  方案: AsyncAppender 异步包装, neverBlock=true 队列满直接丢弃, 业务线程永不被日志阻塞。
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>4096</queueSize>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="ASYNC_CONSOLE"/>
+    </root>
+</configuration>

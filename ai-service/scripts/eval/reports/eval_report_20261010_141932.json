@@ -1,0 +1,424 @@
+{
+  "generated_at": "2026-10-10T14:19:32",
+  "model": "qwen3.8-flash",
+  "summary": {
+    "total": 6,
+    "ran": 6,
+    "passed": 5,
+    "pass_rate": 0.8333,
+    "by_category": {
+      "faq": {
+        "total": 3,
+        "passed": 2
+      },
+      "coupon": {
+        "total": 2,
+        "passed": 2
+      },
+      "aftersale": {
+        "total": 1,
+        "passed": 1
+      }
+    },
+    "judge": {
+      "count": 0,
+      "avg_relevance": null,
+      "avg_groundedness": null,
+      "judge_fail": 0
+    },
+    "latency": {
+      "avg_total_ms": 14018,
+      "avg_ttft_ms": 6800,
+      "avg_ttft_ratio": 0.568
+    },
+    "tokens": {
+      "input": 50128,
+      "output": 3832,
+      "total_per_char": 31.2
+    },
+    "tools": {
+      "total_calls": 17,
+      "success_rate": 1.0,
+      "fail_count": 0,
+      "avg_per_case": 3.0,
+      "per_tool": {
+        "calculate_coupon_discount": {
+          "total": 8,
+          "ok": 8,
+          "fail": 0,
+          "success_rate": 1.0,
+          "avg_elapsed_ms": 11
+        },
+        "get_available_coupons": {
+          "total": 2,
+          "ok": 2,
+          "fail": 0,
+          "success_rate": 1.0,
+          "avg_elapsed_ms": 40
+        },
+        "get_my_coupons": {
+          "total": 3,
+          "ok": 3,
+          "fail": 0,
+          "success_rate": 1.0,
+          "avg_elapsed_ms": 20
+        },
+        "search_faq": {
+          "total": 4,
+          "ok": 4,
+          "fail": 0,
+          "success_rate": 1.0,
+          "avg_elapsed_ms": 1415
+        }
+      }
+    },
+    "faq_quality": null
+  },
+  "results": [
+    {
+      "id": "faq_001",
+      "category": "faq",
+      "q": "你们的退货政策是什么？",
+      "tools_called": [
+        "search_faq"
+      ],
+      "tool_calls_detail": [
+        {
+          "tool": "search_faq",
+          "ok": true,
+          "elapsed_ms": 1362
+        }
+      ],
+      "cards": [],
+      "citations": [],
+      "text": "小鱼商城的退货政策如下：\n\n**7天无理由退货**\n自商品签收之日起 7 天内，商品未使用、不影响二次销售（原包装、吊牌、配件齐全）即可申请无理由退货。[1]\n\n**不支持无理由退货的情况**\n定制类商品、贴身衣物（内衣袜）、已激活的数码产品、生鲜食品，以及页面明确标注\"不支持无理由退货\"的商品。[1]\n\n**质量问题**\n不受 7 天限制，自签收起 15 天内均可申请退换货，运费由商城承担。[1]\n\n**退款到账时间**\n仅退款（未发货）审核通过后原路退回，一般 1–3 个工作日；退货退款需仓库签收验收通过后 1–3 个工作日退回。支付宝/微信通常当天到账，银行卡可能延迟 1–2 个工作日。[2]\n\n如果你有需要退货的订单，把订单号或商品信息告诉我，我可以帮你查看并提交退货申请。",
+      "interrupt": false,
+      "resumed": null,
+      "blocked": false,
+      "input_tokens": 4971,
+      "output_tokens": 322,
+      "ttft_ms": 6447,
+      "total_ms": 9993,
+      "checks": [
+        [
+          "tools_any",
+          true,
+          "期望任一 ['search_faq']，实际 ['search_faq']"
+        ],
+        [
+          "interrupt",
+          true,
+          "期望 False，实际 False"
+        ],
+        [
+          "citations_min",
+          false,
+          "期望 ≥1 条引用，实际 0"
+        ],
+        [
+          "min_text_len",
+          true,
+          "期望文本 ≥5 字，实际 345"
+        ],
+        [
+          "must_not_mention",
+          true,
+          "文本包含「系统内部错误」"
+        ]
+      ],
+      "passed": false,
+      "judge": null
+    },
+    {
+      "id": "faq_007",
+      "category": "faq",
+      "q": "会员有什么权益？",
+      "tools_called": [
+        "search_faq"
+      ],
+      "tool_calls_detail": [
+        {
+          "tool": "search_faq",
+          "ok": true,
+          "elapsed_ms": 1504
+        }
+      ],
+      "cards": [],
+      "citations": [],
+      "text": "小鱼商城会员按**累计消费金额**划分为四个等级，等级越高权益越多 [1]：\n\n| 等级 | 门槛 | 主要权益 |\n|---|---|---|\n| 普通会员 | 注册即享 | 基础权益 |\n| 白银会员 | 累计消费满 1000 元 | 指定商品 **95 折**起 |\n| 黄金会员 | 累计消费满 3000 元 | 指定商品 **9 折**起 |\n| 铂金会员 | 累计消费满 8000 元 | 指定商品 **88 折**起 |\n\n**高等级会员额外权益**：专属客服、生日礼包、免运费等 [1]。\n\n几点补充说明：\n- 消费金额按订单**实付金额**累计，发生退货会扣减相应额度 [1]。\n- 每周三为会员日，开放大额券限时领取；会员等级越高，单笔订单可用优惠券张数越多 [3]。\n\n需要我帮你查一下当前的会员等级或可领的优惠券吗？",
+      "interrupt": false,
+      "resumed": null,
+      "blocked": false,
+      "input_tokens": 4981,
+      "output_tokens": 312,
+      "ttft_ms": 3886,
+      "total_ms": 7621,
+      "checks": [
+        [
+          "tools_any",
+          true,
+          "期望任一 ['search_faq']，实际 ['search_faq']"
+        ],
+        [
+          "interrupt",
+          true,
+          "期望 False，实际 False"
+        ],
+        [
+          "min_text_len",
+          true,
+          "期望文本 ≥5 字，实际 370"
+        ]
+      ],
+      "passed": true,
+      "judge": null
+    },
+    {
+      "id": "faq_008",
+      "category": "faq",
+      "q": "怎么注销账号？",
+      "tools_called": [
+        "search_faq",
+        "search_faq"
+      ],
+      "tool_calls_detail": [
+        {
+          "tool": "search_faq",
+          "ok": true,
+          "elapsed_ms": 1284
+        },
+        {
+          "tool": "search_faq",
+          "ok": true,
+          "elapsed_ms": 1510
+        }
+      ],
+      "cards": [],
+      "citations": [],
+      "text": "抱歉，我在商城的政策说明中暂时没有查到关于**账号注销**的具体流程说明，不想给你错误的指引。\n\n建议你通过以下方式获取准确帮助：\n- 在 App 内「我的 - 设置 - 账号与安全」中查看是否有注销入口\n- 或直接联系人工客服，由专员协助处理注销申请（通常需要先处理完未完结的订单、余额和优惠券）\n\n需要我帮你转接人工客服吗？",
+      "interrupt": false,
+      "resumed": null,
+      "blocked": false,
+      "input_tokens": 8199,
+      "output_tokens": 249,
+      "ttft_ms": 7551,
+      "total_ms": 9388,
+      "checks": [
+        [
+          "tools_any",
+          true,
+          "期望任一 ['search_faq']，实际 ['search_faq', 'search_faq']"
+        ],
+        [
+          "interrupt",
+          true,
+          "期望 False，实际 False"
+        ],
+        [
+          "min_text_len",
+          true,
+          "期望文本 ≥5 字，实际 164"
+        ]
+      ],
+      "passed": true,
+      "judge": null
+    },
+    {
+      "id": "coupon_003",
+      "category": "coupon",
+      "q": "优惠券ID 1 买 200 元的东西能优惠多少？",
+      "tools_called": [
+        "calculate_coupon_discount",
+        "get_available_coupons",
+        "get_my_coupons",
+        "calculate_coupon_discount",
+        "calculate_coupon_discount"
+      ],
+      "tool_calls_detail": [
+        {
+          "tool": "calculate_coupon_discount",
+          "ok": true,
+          "elapsed_ms": 14
+        },
+        {
+          "tool": "get_my_coupons",
+          "ok": true,
+          "elapsed_ms": 23
+        },
+        {
+          "tool": "get_available_coupons",
+          "ok": true,
+          "elapsed_ms": 50
+        },
+        {
+          "tool": "calculate_coupon_discount",
+          "ok": true,
+          "elapsed_ms": 11
+        },
+        {
+          "tool": "calculate_coupon_discount",
+          "ok": true,
+          "elapsed_ms": 11
+        }
+      ],
+      "cards": [],
+      "citations": [],
+      "text": "用优惠券 ID 1 结算 200 元的订单，系统计算结果为：\n\n- 优惠金额：¥0.00\n- 实付金额：¥200.00\n\n也就是说这张券在 200 元订单上没有产生任何减免。另外提醒两点：\n\n1. 领券中心当前可领的券里没有 ID 1（现有的是 ID 3 全场9折券、ID 5 新人现金券10元、ID 23 满减券）；\n2. 你的「我的优惠券」目前显示没有可用券，之前领过的新人满200减50、数码满5000减300 已不可用。\n\n我也顺手用 200 元试算了 ID 3 和 ID 5，同样返回优惠 ¥0.00，疑似券已过期/不可用或不满足使用门槛。需要的话我可以帮你转接人工客服核实这几张券的具体使用规则。",
+      "interrupt": false,
+      "resumed": null,
+      "blocked": false,
+      "input_tokens": 10216,
+      "output_tokens": 942,
+      "ttft_ms": 14292,
+      "total_ms": 17363,
+      "checks": [
+        [
+          "tools_any",
+          true,
+          "期望任一 ['calculate_coupon_discount']，实际 ['calculate_coupon_discount', 'get_available_coupons', 'get_my_coupons', 'calculate_coupon_discount', 'calculate_coupon_discount']"
+        ],
+        [
+          "interrupt",
+          true,
+          "期望 False，实际 False"
+        ],
+        [
+          "min_text_len",
+          true,
+          "期望文本 ≥4 字，实际 304"
+        ]
+      ],
+      "passed": true,
+      "judge": null
+    },
+    {
+      "id": "coupon_005",
+      "category": "coupon",
+      "q": "用我的优惠券买 500 元的东西能便宜多少？",
+      "tools_called": [
+        "get_my_coupons",
+        "get_available_coupons",
+        "get_my_coupons",
+        "calculate_coupon_discount",
+        "calculate_coupon_discount",
+        "calculate_coupon_discount",
+        "calculate_coupon_discount",
+        "calculate_coupon_discount"
+      ],
+      "tool_calls_detail": [
+        {
+          "tool": "get_my_coupons",
+          "ok": true,
+          "elapsed_ms": 16
+        },
+        {
+          "tool": "get_available_coupons",
+          "ok": true,
+          "elapsed_ms": 30
+        },
+        {
+          "tool": "calculate_coupon_discount",
+          "ok": true,
+          "elapsed_ms": 11
+        },
+        {
+          "tool": "get_my_coupons",
+          "ok": true,
+          "elapsed_ms": 21
+        },
+        {
+          "tool": "calculate_coupon_discount",
+          "ok": true,
+          "elapsed_ms": 8
+        },
+        {
+          "tool": "calculate_coupon_discount",
+          "ok": true,
+          "elapsed_ms": 10
+        },
+        {
+          "tool": "calculate_coupon_discount",
+          "ok": true,
+          "elapsed_ms": 10
+        },
+        {
+          "tool": "calculate_coupon_discount",
+          "ok": true,
+          "elapsed_ms": 10
+        }
+      ],
+      "cards": [],
+      "citations": [],
+      "text": "帮你把能用的券都按 500 元实测算了一遍，结果如下：\n\n**你券包里的券**\n- 新人满200减50（满¥200可用）→ 500元订单：优惠 ¥0.00，实付 ¥500.00\n- 数码满5000减300（满¥5000可用）→ 门槛不够，无法使用\n\n**领券中心还能领的**\n- 全场9折券（无门槛）→ 500元订单：优惠 ¥0.00，实付 ¥500.00\n- 新人现金券10元（无门槛）→ 优惠 ¥0.00，实付 ¥500.00\n- 满减券1元（满¥2可用）→ 优惠 ¥0.00，实付 ¥500.00\n\n⚠️ 小结：**按系统当前的计算结果，500 元的订单用这些券都算不出实际优惠，实付仍是 500.00 元**。其中\"满200减50\"\"全场9折\"理论上应该有折扣，但接口返回的优惠金额为 0，可能是券限定了指定品类/场景，或存在其他使用限制。\n\n为避免误导，建议我帮你转接人工客服核实这几张券的具体使用范围，你再决定要不要领券下单～",
+      "interrupt": false,
+      "resumed": null,
+      "blocked": false,
+      "input_tokens": 19494,
+      "output_tokens": 1769,
+      "ttft_ms": 1826,
+      "total_ms": 32162,
+      "checks": [
+        [
+          "tools_all",
+          true,
+          "期望全部调用 ['get_my_coupons']，缺失 []"
+        ],
+        [
+          "interrupt",
+          true,
+          "期望 False，实际 False"
+        ],
+        [
+          "min_text_len",
+          true,
+          "期望文本 ≥4 字，实际 419"
+        ]
+      ],
+      "passed": true,
+      "judge": null
+    },
+    {
+      "id": "aftersale_reject_001",
+      "category": "aftersale",
+      "q": "订单 ORD20261010124012489BA2 收到货了质量有问题，我要退货退款",
+      "tools_called": [
+        "submit_aftersale"
+      ],
+      "tool_calls_detail": [],
+      "cards": [],
+      "citations": [],
+      "text": "好的，已为您取消这次退货退款申请，售后单**没有提交**，订单状态不受影响。\n\n如果之后还需要办理，随时告诉我，我可以重新帮您发起（质量问题退货退款，商品需要寄回哦）。另外也可以告诉我具体是什么质量问题，我帮您看看是否有其他更合适的处理方式，比如换货或仅退款。",
+      "interrupt": true,
+      "resumed": false,
+      "blocked": false,
+      "input_tokens": 2267,
+      "output_tokens": 238,
+      "ttft_ms": null,
+      "total_ms": 7580,
+      "checks": [
+        [
+          "tools_any",
+          true,
+          "期望任一 ['submit_aftersale']，实际 ['submit_aftersale']"
+        ],
+        [
+          "interrupt",
+          true,
+          "期望 True，实际 True"
+        ],
+        [
+          "resume_done",
+          true,
+          "期望 resume=False，实际 False"
+        ],
+        [
+          "min_text_len",
+          true,
+          "期望文本 ≥4 字，实际 130"
+        ]
+      ],
+      "passed": true,
+      "judge": null
+    }
+  ]
+}

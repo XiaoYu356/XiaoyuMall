@@ -86,7 +86,11 @@
     </header>
     
     <main class="main">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <keep-alive :include="['AIAssistant']">
+          <component :is="Component" />
+        </keep-alive>
+      </router-view>
     </main>
     
     <footer class="footer">

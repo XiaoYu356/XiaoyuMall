@@ -1,12 +1,29 @@
+# M3 升级：langgraph 1.x 全家桶（venv 隔离，见 .venv/）
+# 注意：langchain-classic 供老链路（agents/base_agent.py）的 AgentExecutor 使用，
+#       langchain 1.x 已把 legacy agents 移出到该包
 fastapi==0.115.0
 uvicorn==0.32.0
-pydantic==2.10.0
+pydantic==2.13.5
 pydantic-settings==2.6.0
 httpx==0.28.0
-redis==5.2.0
+redis==8.1.0
+# M3：LangGraph checkpoint Redis 持久化（需要 Redis 8，search/JSON 已并入内核）
+langgraph-checkpoint-redis==0.5.2
 python-dotenv==1.0.0
-openai==1.58.1
-langchain==0.3.13
-langchain-openai==0.2.14
-langchain-community==0.3.13
-langgraph==0.2.60
+openai==3.20.0
+langchain-core==1.6.5
+langchain-openai==1.6.6
+langchain-classic==1.0.3
+langgraph==1.2.12
+# M4：AI 写操作审计落库（ai_action_audit）
+pymysql==1.2.3
+# v3.2：本地 bge 系列模型（embedding + rerank，GPU 优先）
+FlagEmbedding>=1.4.0
+# v3：可观测（Langfuse trace / Prometheus 指标 / structlog JSON 日志）
+# langfuse v4（OTel 内核）：LangChain 回调只依赖 langchain-core，但版本探测
+# 仍需 import langchain 主包（与 langchain-classic 同代，1.x 分支）
+langfuse==4.17.0
+langchain==1.4.4
+langchain-core==1.6.10
+prometheus_client==0.23.1
+structlog==25.5.0

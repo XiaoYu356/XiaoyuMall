@@ -466,9 +466,9 @@ public class ProductSearchService {
         if (userId == null) return List.of();
         try {
             String historyKey = SEARCH_HISTORY_PREFIX + userId;
-            List<Object> results = redisTemplate.opsForList().range(historyKey, 0, MAX_HISTORY_SIZE - 1);
+            List<String> results = stringRedisTemplate.opsForList().range(historyKey, 0, MAX_HISTORY_SIZE - 1);
             if (results != null) {
-                return results.stream().map(Object::toString).collect(Collectors.toList());
+                return results;
             }
         } catch (Exception e) {
             log.warn("获取搜索历史失败", e);

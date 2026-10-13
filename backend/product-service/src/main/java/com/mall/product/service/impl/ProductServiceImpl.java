@@ -17,9 +17,11 @@ import com.mall.product.mapper.BrandMapper;
 import com.mall.product.mapper.ProductMapper;
 import com.mall.product.mapper.ProductCategoryMapper;
 import com.mall.product.mapper.ProductSkuMapper;
+import com.mall.product.mq.ProductChangeMessage;
 import com.mall.product.service.ProductService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -55,6 +57,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Autowired
     private ProductSearchService productSearchService;
@@ -191,6 +196,17 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductVO getProductById(Long productId) {
+        String productKey = RedisConstant.PRODUCT_DETAIL_KEY + productId;
+        try {
+            Object cached = redisTemplate.opsForValue().get(productKey);
+            if (cached instanceof ProductVO) {
+                log.debug("商品详情缓存命中: productId={}", productId);
+                return (ProductVO) cached;
+            }
+        } catch (Exception e) {
+            log.warn("读取商品详情缓存失败，降级查询数据库: productId={}", productId, e);
+        }
+
         Product product = productMapper.selectById(productId);
         if (product == null) {
             return null;
@@ -226,6 +242,12 @@ public class ProductServiceImpl implements ProductService {
                   .eq(ProductSku::getStatus, 1);
         List<ProductSku> skus = productSkuMapper.selectList(skuWrapper);
         vo.setTotalStock(skus.stream().mapToInt(ProductSku::getStock).sum());
+
+        try {
+            redisTemplate.opsForValue().set(productKey, vo, RedisConstant.DEFAULT_EXPIRE_TIME, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("回填商品详情缓存失败: productId={}", productId, e);
+        }
 
         return vo;
     }
@@ -289,7 +311,7 @@ public class ProductServiceImpl implements ProductService {
         log.info("商品创建成功: {}, SKU数量: {}", product.getProductName(),
                 dto.getSkuList() != null ? dto.getSkuList().size() : 1);
 
-        productSearchService.syncProduct(product);
+        eventPublisher.publishEvent(new ProductChangeMessage(product.getId(), ProductChangeMessage.ACTION_SYNC));
 
         return product;
     }
@@ -306,10 +328,10 @@ public class ProductServiceImpl implements ProductService {
 
         Product updated = productMapper.selectById(product.getId());
         if (updated != null) {
-            productSearchService.syncProduct(updated);
+            eventPublisher.publishEvent(new ProductChangeMessage(updated.getId(), ProductChangeMessage.ACTION_SYNC));
         }
 
-        return product;
+        return updated;
     }
 
     @Override
@@ -323,7 +345,7 @@ public class ProductServiceImpl implements ProductService {
         String productKey = RedisConstant.PRODUCT_DETAIL_KEY + productId;
         redisTemplate.delete(productKey);
 
-        productSearchService.deleteProduct(productId);
+        eventPublisher.publishEvent(new ProductChangeMessage(productId, ProductChangeMessage.ACTION_DELETE));
 
         log.info("商品删除成功: {}", productId);
     }
@@ -337,7 +359,9 @@ public class ProductServiceImpl implements ProductService {
         }
 
         log.info("MySQL库存扣减成功: skuId={}, quantity={}", skuId, quantity);
-        syncProductToEs(productSkuMapper.selectById(skuId).getProductId());
+        Long productId = productSkuMapper.selectById(skuId).getProductId();
+        redisTemplate.delete(RedisConstant.PRODUCT_DETAIL_KEY + productId);
+        eventPublisher.publishEvent(new ProductChangeMessage(productId, ProductChangeMessage.ACTION_SYNC));
         return true;
     }
 
@@ -357,7 +381,9 @@ public class ProductServiceImpl implements ProductService {
         }
 
         log.info("库存增加成功: skuId={}, quantity={}", skuId, quantity);
-        syncProductToEs(productSkuMapper.selectById(skuId).getProductId());
+        Long productId = productSkuMapper.selectById(skuId).getProductId();
+        redisTemplate.delete(RedisConstant.PRODUCT_DETAIL_KEY + productId);
+        eventPublisher.publishEvent(new ProductChangeMessage(productId, ProductChangeMessage.ACTION_SYNC));
         return true;
     }
 
@@ -376,7 +402,7 @@ public class ProductServiceImpl implements ProductService {
             String productKey = RedisConstant.PRODUCT_DETAIL_KEY + productId;
             redisTemplate.delete(productKey);
             log.info("商品销量增加成功: productId={}, quantity={}", productId, quantity);
-            syncProductToEs(productId);
+            eventPublisher.publishEvent(new ProductChangeMessage(productId, ProductChangeMessage.ACTION_SYNC));
             return true;
         }
 
@@ -399,7 +425,7 @@ public class ProductServiceImpl implements ProductService {
             String productKey = RedisConstant.PRODUCT_DETAIL_KEY + productId;
             redisTemplate.delete(productKey);
             log.info("商品销量减少成功: productId={}, quantity={}", productId, quantity);
-            syncProductToEs(productId);
+            eventPublisher.publishEvent(new ProductChangeMessage(productId, ProductChangeMessage.ACTION_SYNC));
             return true;
         }
 
@@ -515,16 +541,5 @@ public class ProductServiceImpl implements ProductService {
             count++;
         }
         log.info("库存数据同步到Redis完成，共同步{}个SKU", count);
-    }
-
-    private void syncProductToEs(Long productId) {
-        try {
-            Product product = productMapper.selectById(productId);
-            if (product != null) {
-                productSearchService.syncProduct(product);
-            }
-        } catch (Exception e) {
-            log.warn("同步商品到ES失败: productId={}", productId, e);
-        }
     }
 }

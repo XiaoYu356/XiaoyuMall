@@ -70,5 +70,14 @@ rocketmq:
     send-message-timeout: 3000
     retry-times-when-send-failed: 2
 
+# 优惠券秒杀演进版本开关: v0先查再减(基线,存在并发缺陷) / v1数据库原子扣减 / v2同步Lua预扣 / v3异步MQ削峰
+coupon:
+  receive:
+    version: v1
+
 knife4j:
   enable: true
+
+# 内部服务间共享密钥（Feign/AI 服务调用经 X-Internal-Secret 头携带）
+internal:
+  secret: xiaoyu-internal-2026

@@ -17,5 +17,6 @@ D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\service\
 D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\entity\AvailableCouponVO.java
 D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\mq\CouponReceiveMessage.java
 D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\schedule\CouponExpireTask.java
+D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\config\SaTokenConfig.java
 D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\controller\CouponController.java
 D:\code\XiaoyuMall\backend\coupon-service\src\main\java\com\mall\coupon\mq\CouponDlqConsumer.java

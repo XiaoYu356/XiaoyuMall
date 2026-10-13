@@ -31,10 +31,14 @@ services:
       - mall-network
 
   redis:
-    image: redis:7-alpine
+    # M3：升级为 Redis 8 开源版（RediSearch/RedisJSON 已并入内核），
+    # 供 ai-service 的 AsyncRedisSaver 持久化 LangGraph checkpoint
+    image: redis:8.0
     container_name: redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
     networks:
       - mall-network
 
@@ -107,6 +111,35 @@ services:
     networks:
       - mall-network
 
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - mall-network
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    ports:
+      - "3003:3000"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - mall-network
+
   # ai-service:
   #   build:
   #     context: ../ai-service
@@ -134,6 +167,9 @@ volumes:
   mysql-data:
   minio-data:
   es-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   mall-network:

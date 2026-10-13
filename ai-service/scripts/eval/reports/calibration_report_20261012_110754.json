@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-10-12T11:07:54.168733",
+  "elapsed_s": 129.3,
+  "summary": {
+    "thresholds": {
+      "T_HIGH": 0.0,
+      "T_MID": 0.0,
+      "T_LOW": 0.0,
+      "rules": "T_HIGH=neg_max P99；T_MID=neg_max P95；T_LOW=neg_max P50"
+    },
+    "validation": {
+      "positive_survival_at_T_MID": 0.6,
+      "positive_survival_target": 0.95,
+      "ood_false_admission_at_T_MID": 0.0,
+      "ood_high_conf_at_T_HIGH": 0.0,
+      "eer_reference": 0.0,
+      "distribution_conflict_warning": true
+    },
+    "distributions": {
+      "positive_best_gold_score": {
+        "n": 5,
+        "mean": 1.4899,
+        "p5": -1.7455,
+        "p25": -0.3899,
+        "p50": 2.3549,
+        "p75": 2.8778,
+        "p90": 3.9657,
+        "p95": 4.3284,
+        "p99": 4.6185
+      },
+      "negative_max_score": {
+        "n": 0,
+        "mean": 0.0,
+        "p5": 0.0,
+        "p25": 0.0,
+        "p50": 0.0,
+        "p75": 0.0,
+        "p90": 0.0,
+        "p95": 0.0,
+        "p99": 0.0
+      }
+    },
+    "rrf_top3": {
+      "n": 5,
+      "hit@1": 0.6,
+      "recall@3": 0.8,
+      "mrr": 0.7
+    },
+    "rerank_top3": {
+      "n": 5,
+      "hit@1": 1.0,
+      "recall@3": 1.0,
+      "mrr": 1.0
+    },
+    "rerank_graded": {
+      "n": 5,
+      "hit@1": 0.6,
+      "recall@3": 0.6,
+      "mrr": 0.6
+    },
+    "killed_in_domain": [
+      {
+        "query": "东西有瑕疵咋整？能换不",
+        "pos_best": -0.3899138569831848
+      },
+      {
+        "query": "买多少才免邮费呀？",
+        "pos_best": -2.084409713745117
+      }
+    ]
+  }
+}

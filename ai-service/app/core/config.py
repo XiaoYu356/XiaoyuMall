@@ -74,11 +74,15 @@ class Settings(BaseSettings):
     LANGFUSE_SECRET_KEY: str = ""
     LANGFUSE_HOST: str = ""
 
-    # ---- v3 新增：安全与限流 ----
-    # per-user 每分钟请求数上限（滑动窗口）
+    # ---- v3 新增：安全与限流（令牌桶算法） ----
+    # per-user 每分钟补充令牌数（稳态速率，20/min ≈ 0.33 个/秒）
     RATE_LIMIT_USER_PER_MIN: int = 20
-    # 全局每秒请求数上限（固定窗口）
+    # per-user 桶容量（允许的瞬时突发请求数；首次请求或长时间空闲后满桶）
+    RATE_LIMIT_USER_BURST: int = 20
+    # 全局每秒补充令牌数（稳态速率，QPS）
     RATE_LIMIT_GLOBAL_QPS: int = 200
+    # 全局桶容量（允许的瞬时突发请求数）
+    RATE_LIMIT_GLOBAL_BURST: int = 200
     # 单用户并发 SSE 连接上限
     SSE_MAX_CONN_PER_USER: int = 3
     # 用户输入最大字符数（超出截断）

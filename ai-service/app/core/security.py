@@ -1,12 +1,51 @@
 """安全横切层：用户身份识别 / 限流 / SSE 连接槽位 / 输入清洗与注入检测。"""
 import re
 import time
-import uuid
 
 from fastapi import HTTPException, Request
 
 from app.core.config import settings
 from app.core.observability import rate_limited_total
+
+
+# 令牌桶 Lua 脚本：HMSET/HMGET 读写桶状态（tokens + last_ms），按时间差补充令牌，
+# 尝试扣 1 个令牌；Lua 保证"补充 + 扣减 + 写回"的原子性，避免并发下的竞态。
+# 返回 1 = 放行，0 = 拒绝。
+_TOKEN_BUCKET_LUA = """
+local key = KEYS[1]
+local capacity = tonumber(ARGV[1])
+local rate = tonumber(ARGV[2])
+local now_ms = tonumber(ARGV[3])
+local ttl_ms = tonumber(ARGV[4])
+
+local bucket = redis.call('HMGET', key, 'tokens', 'last_ms')
+local tokens = tonumber(bucket[1])
+local last_ms = tonumber(bucket[2])
+
+-- 首次初始化：满桶
+if tokens == nil then
+    tokens = capacity
+    last_ms = now_ms
+end
+
+-- 按时间差补充令牌，不超过容量
+local elapsed = (now_ms - last_ms) / 1000.0
+if elapsed > 0 then
+    tokens = math.min(capacity, tokens + elapsed * rate)
+end
+
+-- 尝试取一个令牌
+local allowed = 0
+if tokens >= 1 then
+    tokens = tokens - 1
+    allowed = 1
+end
+
+redis.call('HMSET', key, 'tokens', tokens, 'last_ms', now_ms)
+redis.call('PEXPIRE', key, ttl_ms)
+
+return allowed
+"""
 
 
 async def get_request_user(request: Request) -> str:
@@ -36,35 +75,45 @@ async def get_request_user(request: Request) -> str:
 
 
 async def check_rate_limit(redis_client, user_id: str) -> None:
-    """限流：per-user 滑动窗口（ZSET 毫秒时间戳）+ 全局固定窗口（INCR 秒级时间片）。
+    """限流：per-user 令牌桶 + 全局令牌桶（Redis Lua 原子实现）。
 
+    令牌桶允许瞬时突发（最多 capacity 个），同时按固定速率匀速补充令牌，
+    兼顾突发流量友好性与长期稳态限流。Lua 脚本保证"补充 + 扣减 + 写回"原子性。
     超限抛 HTTPException(429)。redis_client 为 None 时放行（未配置 Redis 降级直通）。
     """
     if redis_client is None:
         return
 
-    # per-user 滑动窗口：ZADD 当前毫秒 → 清理 60s 前成员 → ZCARD 判断
     now_ms = int(time.time() * 1000)
-    user_key = f"rl:{user_id}"
-    member = f"{now_ms}:{uuid.uuid4().hex}"
-    pipe = redis_client.pipeline()
-    pipe.zadd(user_key, {member: now_ms})
-    pipe.zremrangebyscore(user_key, 0, now_ms - 60_000)
-    pipe.zcard(user_key)
-    # 兜底 TTL：用户不再请求后 key 自动清理
-    pipe.expire(user_key, 120)
-    results = await pipe.execute()
-    user_count = results[2]
-    if user_count > settings.RATE_LIMIT_USER_PER_MIN:
+
+    # per-user 令牌桶：容量 = RATE_LIMIT_USER_BURST，速率 = PER_MIN/60 个/秒
+    user_rate = settings.RATE_LIMIT_USER_PER_MIN / 60.0
+    user_key = f"rl:user:{user_id}"
+    allowed = await redis_client.eval(
+        _TOKEN_BUCKET_LUA,
+        1,
+        user_key,
+        settings.RATE_LIMIT_USER_BURST,
+        user_rate,
+        now_ms,
+        120_000,  # 兜底 TTL 120s，用户不再请求后桶自动清理
+    )
+    if not int(allowed):
         rate_limited_total.labels(scope="user").inc()
         raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试")
 
-    # 全局固定窗口：INCR 秒级时间片，首个请求设置 2s 兜底 TTL
-    global_key = f"rl:global:{int(time.time())}"
-    global_count = await redis_client.incr(global_key)
-    if global_count == 1:
-        await redis_client.expire(global_key, 2)
-    if global_count > settings.RATE_LIMIT_GLOBAL_QPS:
+    # 全局令牌桶：容量 = RATE_LIMIT_GLOBAL_BURST，速率 = QPS 个/秒
+    global_key = "rl:global"
+    allowed = await redis_client.eval(
+        _TOKEN_BUCKET_LUA,
+        1,
+        global_key,
+        settings.RATE_LIMIT_GLOBAL_BURST,
+        float(settings.RATE_LIMIT_GLOBAL_QPS),
+        now_ms,
+        10_000,  # 兜底 TTL 10s，全局桶常驻
+    )
+    if not int(allowed):
         rate_limited_total.labels(scope="global").inc()
         raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试")
 

@@ -121,6 +121,15 @@ public class CouponController {
         boolean result = couponService.useCoupon(couponId, orderId);
         return Result.success(result);
     }
+
+    @PostMapping("/{couponId}/return")
+    @Operation(summary = "退回已使用的优惠券（内部服务调用，售后退款时使用）")
+    public Result<Boolean> returnCoupon(
+            @PathVariable Long couponId,
+            @RequestParam Long orderId) {
+        boolean result = couponService.returnCoupon(couponId, orderId);
+        return Result.success(result);
+    }
     
     @GetMapping("/user/{userId}")
     @Operation(summary = "用户优惠券列表(内部)")

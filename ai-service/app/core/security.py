@@ -9,12 +9,30 @@ from app.core.config import settings
 from app.core.observability import rate_limited_total
 
 
-def get_request_user(request: Request) -> str:
-    """FastAPI 依赖：识别请求用户。X-User-Id 头优先 → user_id query 回退 → 401。"""
+async def get_request_user(request: Request) -> str:
+    """FastAPI 依赖：识别请求用户。
+
+    优先读 satoken 头/query → 查 Redis ``satoken:login:token:{satoken}`` 拿 loginId
+    （Gateway 已校验存在性，此处再查一次取 userId，防止绕过网关直连）；
+    回退 X-User-Id 头 / user_id query（内部服务直连场景）；都无 → 401。
+    """
+    satoken = request.headers.get("satoken") or request.query_params.get("satoken")
+    if satoken:
+        from app.memory import get_redis
+
+        redis = get_redis()
+        try:
+            login_id = await redis.get(f"satoken:login:token:{satoken}")
+        except Exception:
+            login_id = None
+        if login_id:
+            # sa-token-redis-jackson 存 Long loginId 为纯数字；String 则带引号，统一清洗
+            return str(login_id).strip('"')
+    # 回退：内部服务直连（X-Internal-Secret 已由上游网关校验）
     user_id = request.headers.get("X-User-Id") or request.query_params.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="未识别用户身份")
-    return user_id
+    if user_id:
+        return user_id
+    raise HTTPException(status_code=401, detail="未识别用户身份")
 
 
 async def check_rate_limit(redis_client, user_id: str) -> None:

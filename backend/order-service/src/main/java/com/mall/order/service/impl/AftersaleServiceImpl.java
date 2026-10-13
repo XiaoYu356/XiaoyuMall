@@ -2,9 +2,11 @@ package com.mall.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.mall.common.exception.BusinessException;
+import com.mall.common.result.Result;
 import com.mall.order.dto.ApplyAftersaleDTO;
 import com.mall.order.entity.AftersaleOrder;
 import com.mall.order.entity.Order;
+import com.mall.order.feign.CouponServiceClient;
 import com.mall.order.mapper.AftersaleMapper;
 import com.mall.order.mapper.OrderMapper;
 import com.mall.order.service.AftersaleService;
@@ -53,6 +55,9 @@ public class AftersaleServiceImpl implements AftersaleService {
 
     @Autowired
     private OrderMapper orderMapper;
+
+    @Autowired
+    private CouponServiceClient couponServiceClient;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -150,16 +155,38 @@ public class AftersaleServiceImpl implements AftersaleService {
     /**
      * 执行退款落账：售后单置已完成、记录退款时间，原订单置已退款。
      * 退款通道与"模拟支付"同为可替换适配器，将来可替换为支付网关退款 API。
+     * 同时退回已使用的优惠券（尽力而为：Feign 异常不阻塞退款主流程）。
      */
     private void doRefund(AftersaleOrder aftersale, LocalDateTime at) {
         aftersale.setStatus(ST_COMPLETED);
         aftersale.setRefundTime(at);
         aftersaleMapper.updateById(aftersale);
 
-        Order order = new Order();
-        order.setId(aftersale.getOrderId());
-        order.setStatus(ORDER_REFUNDED);
-        orderMapper.updateById(order);
+        // 先查出完整订单（包含 couponId），再更新状态 + 退券
+        Order order = orderMapper.selectById(aftersale.getOrderId());
+        Order update = new Order();
+        update.setId(aftersale.getOrderId());
+        update.setStatus(ORDER_REFUNDED);
+        orderMapper.updateById(update);
+
+        if (order != null && order.getCouponId() != null) {
+            try {
+                Result<Boolean> ret = couponServiceClient.returnCoupon(
+                        order.getCouponId(), order.getId());
+                if (ret != null && ret.getData() != null && ret.getData()) {
+                    log.info("售后退款优惠券退回成功: aftersaleNo={}, couponId={}",
+                            aftersale.getAftersaleNo(), order.getCouponId());
+                } else {
+                    log.warn("售后退款优惠券退回返回 false: aftersaleNo={}, couponId={}",
+                            aftersale.getAftersaleNo(), order.getCouponId());
+                }
+            } catch (Exception e) {
+                // 退券失败不阻塞退款主流程——优惠券服务异常时先保证退款到账，
+                // 退券可通过定时补偿或人工处理
+                log.error("售后退款优惠券退回异常（已忽略，需人工补偿）: aftersaleNo={}, couponId={}",
+                        aftersale.getAftersaleNo(), order.getCouponId(), e);
+            }
+        }
     }
 
     @Override

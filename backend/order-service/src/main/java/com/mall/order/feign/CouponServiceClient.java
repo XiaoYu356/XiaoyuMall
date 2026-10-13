@@ -17,4 +17,7 @@ public interface CouponServiceClient {
     
     @PostMapping("/api/v1/coupons/{couponId}/use")
     Result<Boolean> useCoupon(@PathVariable("couponId") Long couponId, @RequestParam("orderId") Long orderId);
+
+    @PostMapping("/api/v1/coupons/{couponId}/return")
+    Result<Boolean> returnCoupon(@PathVariable("couponId") Long couponId, @RequestParam("orderId") Long orderId);
 }

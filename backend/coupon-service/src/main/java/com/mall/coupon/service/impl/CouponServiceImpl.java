@@ -582,6 +582,43 @@ public class CouponServiceImpl implements CouponService {
     }
 
     @Override
+    public boolean returnCoupon(Long couponId, Long orderId) {
+        UserCoupon userCoupon = userCouponMapper.selectById(couponId);
+        if (userCoupon == null) {
+            log.warn("退券失败：优惠券不存在 couponId={}", couponId);
+            return false;
+        }
+        if (userCoupon.getStatus() != 1) {
+            log.warn("退券失败：优惠券未使用 status={}, couponId={}", userCoupon.getStatus(), couponId);
+            return false;
+        }
+        if (userCoupon.getOrderId() == null || !userCoupon.getOrderId().equals(orderId)) {
+            log.warn("退券失败：订单不匹配 couponOrderId={}, requestOrderId={}, couponId={}",
+                    userCoupon.getOrderId(), orderId, couponId);
+            return false;
+        }
+
+        int rows = userCouponMapper.returnCouponCas(couponId, orderId);
+        if (rows == 0) {
+            log.warn("退券 CAS 失败（可能已被退回）: couponId={}, orderId={}", couponId, orderId);
+            return false;
+        }
+
+        // 如果券已过 expire_time，退回后自然过期，状态改为 2
+        if (userCoupon.getExpireTime() != null
+                && LocalDateTime.now(ZoneId.of("Asia/Shanghai")).isAfter(userCoupon.getExpireTime())) {
+            UserCoupon expired = new UserCoupon();
+            expired.setId(couponId);
+            expired.setStatus(2);
+            userCouponMapper.updateById(expired);
+            log.info("优惠券退回后已过期: couponId={}, orderId={}", couponId, orderId);
+        } else {
+            log.info("优惠券退回成功: couponId={}, orderId={}", couponId, orderId);
+        }
+        return true;
+    }
+
+    @Override
     public Page<UserCouponVO> getUserCouponList(Long userId, Integer status, Integer pageNum, Integer pageSize) {
         LambdaUpdateWrapper<UserCoupon> expireWrapper = new LambdaUpdateWrapper<>();
         expireWrapper.eq(UserCoupon::getUserId, userId)

@@ -1,4 +1,4 @@
-"""GET /api/v3/chat/stream —— v3 SSE 对话端点（单 Agent 主干，契约见设计文档 §6）。
+"""GET /api/v1/ai/stream/v3/chat —— v3 SSE 对话端点（单 Agent 主干，契约见设计文档 §6）。
 
 事件序列（每帧格式 `event: <type>\\ndata: <json>\\n\\n`，json 不转义中文）：
     meta（首事件，request_id/trace_url/served_by="agent"）
@@ -93,7 +93,7 @@ def _pending_interrupts(state: Any) -> list:
     ]
 
 
-@router.get("/api/v3/chat/stream")
+@router.get("/api/v1/ai/stream/v3/chat")
 async def chat_stream(
     request: Request,
     q: str,

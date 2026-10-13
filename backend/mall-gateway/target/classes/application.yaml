@@ -38,8 +38,8 @@ spring:
           filters:
             - StripPrefix=0
 
-        - id: product-ai-service
-          uri: lb://product-service
+        - id: ai-service
+          uri: lb://ai-service
           predicates:
             - Path=/api/v1/ai/**
           filters:

@@ -9,7 +9,6 @@ D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\servic
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\config\SaTokenConfig.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mq\ProductEsSyncConsumer.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\mapper\ProductMapper.java
-D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\controller\AIController.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\controller\ProductController.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\config\RedisConfig.java
 D:\code\XiaoyuMall\backend\product-service\src\main\java\com\mall\product\entity\Brand.java

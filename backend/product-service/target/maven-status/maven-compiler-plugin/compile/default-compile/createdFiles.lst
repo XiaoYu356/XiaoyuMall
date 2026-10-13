@@ -8,7 +8,6 @@ com\mall\product\entity\ProductSku.class
 com\mall\product\mapper\ProductSkuMapper.class
 com\mall\product\feign\UserServiceClient.class
 com\mall\product\entity\Product.class
-com\mall\product\controller\AIController.class
 com\mall\product\mq\ProductEsSyncDlqConsumer.class
 com\mall\product\es\ProductDocument.class
 com\mall\product\mq\ProductEsSyncProducer.class

@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.http_client import close_http_client, init_http_client
+from app.core.nacos_register import deregister_from_nacos, register_to_nacos
 from app.core.observability import setup_logging
 from app.graph.checkpointer import init_checkpointer
 from app.memory import close_redis
@@ -60,8 +61,12 @@ async def lifespan(app: FastAPI):
                 "图装配失败（后续任务），graph=not_assembled，不阻断启动: %s", e
             )
 
+        # Nacos 注册：注册到 Nacos + 启动心跳守护协程，使 Gateway lb://ai-service 可路由
+        await register_to_nacos()
+
         yield
     finally:
+        await deregister_from_nacos()
         await close_http_client()
         await close_redis()
 
@@ -92,7 +97,7 @@ app.include_router(chat_router)
 app.include_router(resume_router)
 app.include_router(feedback_router)
 app.include_router(knowledge_router)
-# v2 前端代理兼容端点（product-service AIController 透传路径不变）
+# memory 端点挂 /api/v1/ai 前缀（与前端 ai.js 请求路径对齐）
 app.include_router(memory_router, prefix="/api/v1/ai")
 
 if __name__ == "__main__":

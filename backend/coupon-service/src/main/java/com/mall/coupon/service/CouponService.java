@@ -35,6 +35,16 @@ public interface CouponService {
     BigDecimal calculateDiscount(Long couponId, BigDecimal orderAmount);
     
     boolean useCoupon(Long couponId, Long orderId);
+
+    /**
+     * 退回已使用的优惠券（售后退款时调用）。
+     * CAS 幂等：同一订单多次退款不会重复退券。
+     *
+     * @param couponId 用户券记录 ID（user_coupon.id）
+     * @param orderId  原订单 ID（用于校验，防止退错券）
+     * @return true=退回成功，false=券不存在 / 不是该订单用的 / 已退回
+     */
+    boolean returnCoupon(Long couponId, Long orderId);
     
     Page<UserCouponVO> getUserCouponList(Long userId, Integer status, Integer pageNum, Integer pageSize);
 

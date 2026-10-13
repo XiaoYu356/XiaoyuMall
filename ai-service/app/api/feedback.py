@@ -1,4 +1,4 @@
-"""POST /api/v3/feedback —— 用户 👍/👎 反馈落库 ai_chat_feedback（评估闭环数据源）。
+"""POST /api/v1/ai/v3/feedback —— 用户 👍/👎 反馈落库 ai_chat_feedback（评估闭环数据源）。
 
 落库模式与 app/core/audit.py 一致：pymysql 同步驱动 + asyncio.to_thread +
 best-effort（失败不抛错，返回 success=false，HTTP 200）。
@@ -51,7 +51,7 @@ class FeedbackRequest(BaseModel):
     comment: str | None = Field(default=None, max_length=500)
 
 
-@router.post("/api/v3/feedback")
+@router.post("/api/v1/ai/v3/feedback")
 async def submit_feedback(
     body: FeedbackRequest,
     user_id: str = Depends(get_request_user),

@@ -1,4 +1,4 @@
-"""POST /api/v3/resume —— HITL 写操作确认恢复（幂等，语义与 v2 一致）。
+"""POST /api/v1/ai/v3/resume —— HITL 写操作确认恢复（幂等，语义与 v2 一致）。
 
 - 幂等：Redis `SET resume:{thread_id} NX EX 600`，重复提交 409 已处理；
   Redis 不可用时幂等降级为直通（log warning，不阻断恢复）
@@ -37,12 +37,12 @@ class ResumeRequest(BaseModel):
     user_id: Optional[str] = None
 
 
-@router.post("/api/v3/resume")
+@router.post("/api/v1/ai/v3/resume")
 async def resume_write_action(request: Request, body: ResumeRequest):
     """HITL 硬中断恢复：前端确认卡片点击后调用。"""
     # 身份：get_request_user 优先（头/参数），body.user_id 兼容回退
     try:
-        user_id = get_request_user(request)
+        user_id = await get_request_user(request)
     except HTTPException:
         if not body.user_id:
             raise

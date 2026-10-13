@@ -32,10 +32,6 @@ public class SaTokenConfig implements WebMvcConfigurer {
             if ("GET".equals(method) && path.startsWith("/api/v1/products")) {
                 return; // 商品浏览公开
             }
-            // AI v3 端点：鉴权由 AIController 内部处理（登录态优先，游客回退/401），拦截器放行
-            if (path.startsWith("/api/v1/ai/stream/v3/chat") || path.startsWith("/api/v1/ai/v3/")) {
-                return;
-            }
             StpUtil.checkLogin();
         }))
         .addPathPatterns("/**")

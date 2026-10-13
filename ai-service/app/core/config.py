@@ -90,6 +90,17 @@ class Settings(BaseSettings):
     # 服务自身对外基础地址（拼 Langfuse trace_url 用）
     SERVICE_BASE_URL: str = ""
 
+    # ---- Nacos 注册（ai-service 直连注册，Gateway 经 lb://ai-service 路由） ----
+    NACOS_HOST: str = "localhost"
+    NACOS_PORT: int = 8848
+    NACOS_NAMESPACE: str = "public"
+    NACOS_GROUP: str = "DEFAULT_GROUP"
+    SERVICE_NAME: str = "ai-service"
+    # 注册到 Nacos 的 IP（留空则自动探测本机 IP）
+    SERVICE_IP: str = "127.0.0.1"
+    # 心跳间隔秒（Nacos 默认 5s 心跳，≤15s 标记健康）
+    NACOS_HEARTBEAT_INTERVAL: int = 5
+
     class Config:
         env_file = ".env"
         case_sensitive = True

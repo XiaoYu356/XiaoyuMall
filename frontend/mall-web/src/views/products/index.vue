@@ -9,16 +9,30 @@
       <div class="filter-section">
         <div class="filter-row">
           <span class="filter-label">分类：</span>
-          <el-tree-select
-            v-model="searchForm.categoryId"
-            :data="categoryTree"
-            :props="{ label: 'categoryName', value: 'id', children: 'children' }"
-            placeholder="全部分类"
-            clearable
-            check-strictly
-            style="width: 200px"
-            @change="handleSearch"
-          />
+          <div class="filter-options">
+            <span
+              class="filter-option"
+              :class="{ active: !searchForm.categoryId }"
+              @click="selectCategory(null)"
+            >全部</span>
+            <span
+              v-if="parentCategory"
+              class="filter-option"
+              @click="selectCategory(parentCategory.id)"
+            >‹ 返回{{ parentCategory.categoryName }}</span>
+            <span
+              v-for="cat in visibleCategories"
+              :key="cat.id"
+              class="filter-option"
+              :class="{ active: searchForm.categoryId === cat.id }"
+              @click="selectCategory(cat.id)"
+            >{{ cat.name }} ({{ cat.count }})</span>
+            <span
+              v-if="categories.length > MAX_VISIBLE_CATEGORIES"
+              class="filter-option more-toggle"
+              @click="categoryExpanded = !categoryExpanded"
+            >{{ categoryExpanded ? '收起' : `更多 (${categories.length - MAX_VISIBLE_CATEGORIES})` }}</span>
+          </div>
         </div>
         <div class="filter-row">
           <span class="filter-label">品牌：</span>
@@ -128,6 +142,9 @@ const route = useRoute()
 const loading = ref(false)
 const products = ref([])
 const categoryList = ref([])
+const categories = ref([])
+const categoryExpanded = ref(false)
+const MAX_VISIBLE_CATEGORIES = 8
 const brandFilters = ref([])
 const priceRanges = ref([])
 const customMinPrice = ref(null)
@@ -149,22 +166,30 @@ const pagination = reactive({
   total: 0
 })
 
-const categoryTree = computed(() => {
-  const list = categoryList.value
-  const map = {}
-  const roots = []
-  list.forEach(c => {
-    map[c.id] = { ...c, children: [] }
-  })
-  list.forEach(c => {
-    const node = map[c.id]
-    if (c.parentId && map[c.parentId]) {
-      map[c.parentId].children.push(node)
-    } else {
-      roots.push(node)
-    }
-  })
-  return roots
+const currentCategory = computed(() =>
+  categoryList.value.find(c => c.id === searchForm.categoryId) || null
+)
+
+// 有父分类时展示“返回上级”，避免只能一路点“全部”重置
+const parentCategory = computed(() => {
+  const parentId = currentCategory.value?.parentId
+  if (!parentId) return null
+  return categoryList.value.find(c => c.id === parentId) || null
+})
+
+const visibleCategories = computed(() =>
+  categoryExpanded.value
+    ? categories.value
+    : categories.value.slice(0, MAX_VISIBLE_CATEGORIES)
+)
+
+const selectCategory = (categoryId) => {
+  searchForm.categoryId = categoryId
+  handleSearch()
+}
+
+watch(categories, () => {
+  categoryExpanded.value = false
 })
 
 onMounted(() => {
@@ -179,13 +204,16 @@ onMounted(() => {
 })
 
 watch(() => route.query, (query) => {
+  // keyword 被清空（query 里没有 keyword）时也要同步，否则会一直保留上一次的搜索结果
+  const nextKeyword = query.keyword || ''
+  const nextCategoryId = query.categoryId ? Number(query.categoryId) : null
   let needRefresh = false
-  if (query.keyword !== undefined && query.keyword !== searchForm.keyword) {
-    searchForm.keyword = query.keyword || ''
+  if (nextKeyword !== searchForm.keyword) {
+    searchForm.keyword = nextKeyword
     needRefresh = true
   }
-  if (query.categoryId && Number(query.categoryId) !== searchForm.categoryId) {
-    searchForm.categoryId = Number(query.categoryId)
+  if (nextCategoryId !== searchForm.categoryId) {
+    searchForm.categoryId = nextCategoryId
     needRefresh = true
   }
   if (needRefresh) {
@@ -239,6 +267,7 @@ const fetchFilters = async () => {
     if (filtersRes.data) {
       brandFilters.value = filtersRes.data.brands || []
       priceRanges.value = filtersRes.data.priceRanges || []
+      categories.value = filtersRes.data.categories || []
     }
     if (brandsRes.data) {
       const map = {}
@@ -369,6 +398,10 @@ const goToDetail = (id) => {
 .filter-option.active {
   color: #409EFF;
   background: #ecf5ff;
+}
+
+.more-toggle {
+  color: #999;
 }
 
 .price-input-group {

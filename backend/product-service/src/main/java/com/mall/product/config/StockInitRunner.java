@@ -28,7 +28,10 @@ public class StockInitRunner implements CommandLineRunner {
 
         try {
             log.info("开始同步商品数据到Elasticsearch...");
-            productSearchService.syncAllProducts();
+            // 启动只建索引不删索引，避免重启期间搜索不可用
+            productSearchService.createIndexIfNeeded();
+            // 索引为空时才全量同步，否则靠 MQ 增量同步
+            productSearchService.syncAllProductsIfEmpty();
         } catch (Exception e) {
             log.warn("启动时ES同步失败，可手动调用 /api/v1/products/es/sync 接口同步", e);
         }

@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 # asetup 含连接探测 + 索引创建，本地 Redis 正常时秒级完成
 _SETUP_TIMEOUT_SECONDS = 5
 
+# checkpoint TTL（分钟）：与 chat 历史列表的 7 天对齐，避免会话 key 永久驻留 Redis。
+# refresh_on_read=True：活跃会话每次读写续期，只有真正闲置 7 天才回收。
+_CHECKPOINT_TTL_MINUTES = 60 * 24 * 7
+
 _checkpointer: Any = None
 _resolved = False
 # 当前 checkpointer 模式：redis / memory / unknown（未初始化）
@@ -38,7 +42,13 @@ async def init_checkpointer() -> Any:
     try:
         from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
-        saver = AsyncRedisSaver(_build_redis_url())
+        saver = AsyncRedisSaver(
+            _build_redis_url(),
+            ttl={
+                "default_ttl": _CHECKPOINT_TTL_MINUTES,
+                "refresh_on_read": True,
+            },
+        )
         # 连接不可达 / 模块缺失 / 建索引失败都会在此暴露
         await asyncio.wait_for(saver.asetup(), timeout=_SETUP_TIMEOUT_SECONDS)
         _checkpointer = saver

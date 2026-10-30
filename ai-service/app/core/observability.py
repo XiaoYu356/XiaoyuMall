@@ -32,11 +32,25 @@ ttft_seconds = Histogram(
     "ttft_seconds",
     "Time to first LLM token in seconds",
 )
-# 端到端请求耗时（served_by 区分 agent/降级链路）
+# 端到端请求耗时（served_by 区分 agent/降级链路；route 区分 v1 意图路由去向，
+# 无 intent 节点的 v0 图与降级应答记为 none——快速通道的降延迟收益靠该维度可证）
 e2e_latency_seconds = Histogram(
     "e2e_latency_seconds",
     "End-to-end request latency in seconds",
-    ["served_by"],
+    ["served_by", "route"],
+)
+# 意图路由耗时（按最终 route 维度，含兜底改道；intent 是非流式 LLM，
+# 其耗时全部前移到 TTFT 之前，需单独观测才能区分"路由慢"与"生成慢"）
+intent_latency_seconds = Histogram(
+    "intent_latency_seconds",
+    "Intent routing latency in seconds",
+    ["route"],
+)
+# 意图路由决策分布（含三层兜底改道为 agent_execute 的情况）
+intent_routes_total = Counter(
+    "intent_routes_total",
+    "Intent route decisions total",
+    ["route"],
 )
 # 工具调用计数（tool 名称 + 是否成功）
 tool_calls_total = Counter(

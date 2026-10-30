@@ -6,8 +6,6 @@ import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.FunctionScore;
-import co.elastic.clients.elasticsearch._types.query_dsl.FunctionScoreMode;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
@@ -44,6 +42,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -126,14 +125,21 @@ public class ProductSearchService {
                                 .properties("productName", p -> p.text(t -> t
                                         .analyzer("ik_max_word")
                                         .searchAnalyzer("ik_smart")
+                                        .copyTo("all")
                                         .fields("keyword", f -> f.keyword(k -> k.ignoreAbove(256)))))
                                 .properties("categoryId", p -> p.long_(l -> l))
-                                .properties("categoryName", p -> p.keyword(k -> k))
-                                .properties("categoryNameSearch", p -> p.text(t -> t.analyzer("ik_max_word").searchAnalyzer("ik_smart")))
+                                .properties("categoryName", p -> p.text(t -> t
+                                        .analyzer("ik_max_word")
+                                        .searchAnalyzer("ik_smart")
+                                        .copyTo("all")))
+                                .properties("categoryIds", p -> p.long_(l -> l))
                                 .properties("parentCategoryId", p -> p.long_(l -> l))
                                 .properties("brandId", p -> p.long_(l -> l))
-                                .properties("brandName", p -> p.keyword(k -> k))
-                                .properties("brandNameSearch", p -> p.text(t -> t.analyzer("ik_max_word").searchAnalyzer("ik_smart")))
+                                .properties("brandName", p -> p.text(t -> t
+                                        .analyzer("ik_max_word")
+                                        .searchAnalyzer("ik_smart")
+                                        .copyTo("all")
+                                        .fields("keyword", f -> f.keyword(k -> k))))
                                 .properties("price", p -> p.double_(d -> d))
                                 .properties("originalPrice", p -> p.double_(d -> d))
                                 .properties("description", p -> p.text(t -> t.analyzer("ik_max_word").searchAnalyzer("ik_smart")))
@@ -143,13 +149,37 @@ public class ProductSearchService {
                                 .properties("totalStock", p -> p.integer(i -> i))
                                 .properties("createTime", p -> p.date(d -> d.format("yyyy-MM-dd'T'HH:mm:ss")))
                                 .properties("suggest", p -> p.completion(cp -> cp.analyzer("ik_max_word")))
+                                .properties("all", p -> p.text(t -> t.analyzer("ik_max_word").searchAnalyzer("ik_smart")))
                         )));
         log.info("ES索引创建结果: {}", response.acknowledged());
     }
 
-    public void syncAllProducts() {
-        recreateIndex();
+    /**
+     * 启动时调用：索引为空才全量同步，避免重启删索引导致搜索不可用
+     */
+    public void syncAllProductsIfEmpty() {
+        try {
+            long docCount = esClient.count(c -> c.index(ProductDocument.INDEX_NAME)).count();
+            if (docCount > 0) {
+                log.info("ES索引已有{}条数据，跳过全量同步", docCount);
+                return;
+            }
+            log.info("ES索引为空，开始全量同步...");
+            syncAllProducts();
+        } catch (Exception e) {
+            log.error("检查ES索引数据量失败", e);
+        }
+    }
 
+    /**
+     * 手动全量重建：先删索引再同步（运维操作）
+     */
+    public void rebuildAllProducts() {
+        recreateIndex();
+        syncAllProducts();
+    }
+
+    public void syncAllProducts() {
         List<Product> products = productMapper.selectList(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Product>()
                         .eq(Product::getStatus, 1));
@@ -173,6 +203,12 @@ public class ProductSearchService {
             });
         }
 
+        // 构建分类祖先链缓存，用于计算 categoryIds
+        Map<Long, List<Long>> categoryAncestorsCache = new HashMap<>();
+        for (Long catId : categoryIds) {
+            categoryAncestorsCache.put(catId, buildCategoryAncestors(catId, parentCategoryMap));
+        }
+
         Map<Long, String> brandNameMap = new HashMap<>();
         if (!brandIds.isEmpty()) {
             List<Brand> brands = brandMapper.selectBatchIds(brandIds);
@@ -194,7 +230,7 @@ public class ProductSearchService {
                 List<Product> batch = products.subList(i, Math.min(i + batchSize, products.size()));
                 BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
                 for (Product p : batch) {
-                    ProductDocument doc = buildDocumentFromProduct(p, categoryNameMap, parentCategoryMap, brandNameMap, stockMap);
+                    ProductDocument doc = buildDocumentFromProduct(p, categoryNameMap, parentCategoryMap, brandNameMap, stockMap, categoryAncestorsCache);
                     bulkBuilder.operations(op -> op
                             .index(idx -> idx
                                     .index(ProductDocument.INDEX_NAME)
@@ -244,34 +280,22 @@ public class ProductSearchService {
                                    BigDecimal maxPrice, Long brandId, String sortBy,
                                    Integer pageNum, Integer pageSize) {
         try {
-            List<Query> mustQueries = new ArrayList<>();
-            mustQueries.add(Query.of(q -> q.term(t -> t.field("status").value(1))));
+            List<Query> filterQueries = new ArrayList<>();
+            filterQueries.add(Query.of(q -> q.term(t -> t.field("status").value(1))));
 
+            // 分类过滤：通过 categoryIds（含祖先链）一次命中所有后代商品
             if (categoryId != null) {
-                List<Long> categoryIds = new ArrayList<>();
-                categoryIds.add(categoryId);
-                List<ProductCategory> children = categoryMapper.selectList(
-                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ProductCategory>()
-                                .eq(ProductCategory::getParentId, categoryId));
-                children.forEach(c -> categoryIds.add(c.getId()));
-
-                List<FieldValue> values = categoryIds.stream()
-                        .map(id -> FieldValue.of(id))
-                        .collect(Collectors.toList());
-                mustQueries.add(Query.of(q -> q.terms(t -> t.field("categoryId").terms(
-                        tv -> tv.value(values)))));
+                filterQueries.add(Query.of(q -> q.term(t -> t.field("categoryIds").value(categoryId))));
             }
 
-            if (StringUtils.hasText(keyword)) {
-                mustQueries.add(Query.of(q -> q.multiMatch(m -> m
-                        .fields("productName^3", "brandNameSearch^2", "categoryNameSearch^1.5", "description^1")
-                        .query(keyword)
-                        .type(co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType.BestFields)
-                        .fuzziness("AUTO"))));
+            // 品牌筛选
+            if (brandId != null) {
+                filterQueries.add(Query.of(q -> q.term(t -> t.field("brandId").value(brandId))));
             }
 
+            // 价格筛选
             if (minPrice != null || maxPrice != null) {
-                mustQueries.add(Query.of(q -> q.range(r -> {
+                filterQueries.add(Query.of(q -> q.range(r -> {
                     var range = r.field("price");
                     if (minPrice != null) range.gte(co.elastic.clients.json.JsonData.of(minPrice));
                     if (maxPrice != null) range.lte(co.elastic.clients.json.JsonData.of(maxPrice));
@@ -279,50 +303,42 @@ public class ProductSearchService {
                 })));
             }
 
-            if (brandId != null) {
-                mustQueries.add(Query.of(q -> q.term(t -> t.field("brandId").value(brandId))));
+            boolean hasKeyword = StringUtils.hasText(keyword);
+
+            List<Query> mustQueries = new ArrayList<>();
+            if (hasKeyword) {
+                // all 负责跨字段召回，productName 负责标题精排
+                mustQueries.add(Query.of(q -> q.multiMatch(m -> m
+                        .fields("all^1", "productName^3")
+                        .query(keyword)
+                        .type(co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType.BestFields))));
             }
 
-            BoolQuery boolQuery = BoolQuery.of(b -> b.must(mustQueries));
+            BoolQuery boolQuery = BoolQuery.of(b -> b
+                    .must(mustQueries)
+                    .filter(filterQueries));
 
-            Query finalQuery;
-            if (StringUtils.hasText(keyword)) {
-                finalQuery = Query.of(q -> q.functionScore(fs -> fs
-                        .query(Query.of(qb -> qb.bool(boolQuery)))
-                        .functions(
-                                FunctionScore.of(f -> f.fieldValueFactor(fvf -> fvf
-                                        .field("sales")
-                                        .factor(0.1)
-                                        .modifier(co.elastic.clients.elasticsearch._types.query_dsl.FieldValueFactorModifier.Log1p)))
-                        )
-                        .scoreMode(FunctionScoreMode.Sum)
-                        .boostMode(co.elastic.clients.elasticsearch._types.query_dsl.FunctionBoostMode.Multiply)));
-            } else {
-                finalQuery = Query.of(q -> q.bool(boolQuery));
-            }
+            Query finalQuery = Query.of(q -> q.bool(boolQuery));
 
             int from = (pageNum - 1) * pageSize;
 
-            var searchBuilder = esClient.search(s -> {
+            SearchResponse<ProductDocument> response = esClient.search(s -> {
                 s.index(ProductDocument.INDEX_NAME)
                         .query(finalQuery)
                         .from(from)
                         .size(pageSize);
 
-                if (StringUtils.hasText(keyword)) {
+                if (hasKeyword) {
                     s.highlight(h -> h
                             .preTags("<em class='highlight'>")
                             .postTags("</em>")
                             .fields("productName", HighlightField.of(hf -> hf))
-                            .fields("description", HighlightField.of(hf -> hf))
-                            .fields("brandNameSearch", HighlightField.of(hf -> hf)));
+                            .fields("description", HighlightField.of(hf -> hf)));
                 }
 
-                applySort(s, sortBy);
+                applySort(s, sortBy, hasKeyword);
                 return s;
             }, ProductDocument.class);
-
-            SearchResponse<ProductDocument> response = searchBuilder;
 
             Page<ProductVO> voPage = new Page<>(pageNum, pageSize, response.hits().total().value());
             List<ProductVO> voList = response.hits().hits().stream().map(hit -> {
@@ -354,7 +370,7 @@ public class ProductSearchService {
         }
     }
 
-    private void applySort(co.elastic.clients.elasticsearch.core.SearchRequest.Builder s, String sortBy) {
+    private void applySort(co.elastic.clients.elasticsearch.core.SearchRequest.Builder s, String sortBy, boolean hasKeyword) {
         if (sortBy == null) sortBy = "default";
         switch (sortBy) {
             case "price_asc":
@@ -370,8 +386,13 @@ public class ProductSearchService {
                 s.sort(so -> so.field(f -> f.field("createTime").order(SortOrder.Desc)));
                 break;
             default:
+                // 有关键词时按相关性排序，无关键词时按销量
+                if (hasKeyword) {
+                    s.sort(so -> so.score(sc -> sc.order(SortOrder.Desc)));
+                }
                 s.sort(so -> so.field(f -> f.field("sales").order(SortOrder.Desc)));
                 s.sort(so -> so.field(f -> f.field("createTime").order(SortOrder.Desc)));
+                s.sort(so -> so.field(f -> f.field("id").order(SortOrder.Asc)));
                 break;
         }
     }
@@ -488,42 +509,40 @@ public class ProductSearchService {
     public Map<String, List<Map<String, Object>>> getSearchFilters(Long categoryId, String keyword) {
         Map<String, List<Map<String, Object>>> filters = new HashMap<>();
         try {
-            List<Query> mustQueries = new ArrayList<>();
-            mustQueries.add(Query.of(q -> q.term(t -> t.field("status").value(1))));
+            List<Query> filterQueries = new ArrayList<>();
+            filterQueries.add(Query.of(q -> q.term(t -> t.field("status").value(1))));
 
+            // 分类过滤：只受当前分类影响，不受品牌/价格勾选影响
             if (categoryId != null) {
-                List<Long> categoryIds = new ArrayList<>();
-                categoryIds.add(categoryId);
-                List<ProductCategory> children = categoryMapper.selectList(
-                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ProductCategory>()
-                                .eq(ProductCategory::getParentId, categoryId));
-                children.forEach(c -> categoryIds.add(c.getId()));
-                List<FieldValue> values = categoryIds.stream()
-                        .map(id -> FieldValue.of(id))
-                        .collect(Collectors.toList());
-                mustQueries.add(Query.of(q -> q.terms(t -> t.field("categoryId").terms(
-                        tv -> tv.value(values)))));
+                filterQueries.add(Query.of(q -> q.term(t -> t.field("categoryIds").value(categoryId))));
             }
 
+            List<Query> mustQueries = new ArrayList<>();
             if (StringUtils.hasText(keyword)) {
                 mustQueries.add(Query.of(q -> q.multiMatch(m -> m
-                        .fields("productName^3", "brandNameSearch^2", "categoryNameSearch^1.5", "description^1")
-                        .query(keyword))));
+                        .fields("all^1", "productName^3")
+                        .query(keyword)
+                        .type(co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType.BestFields))));
             }
 
-            BoolQuery boolQuery = BoolQuery.of(b -> b.must(mustQueries));
+            BoolQuery boolQuery = BoolQuery.of(b -> b
+                    .must(mustQueries)
+                    .filter(filterQueries));
 
             SearchResponse<ProductDocument> response = esClient.search(s -> s
                             .index(ProductDocument.INDEX_NAME)
                             .query(Query.of(q -> q.bool(boolQuery)))
                             .size(0)
                             .aggregations("brand_filter", Aggregation.of(a -> a
-                                    .terms(t -> t.field("brandName").size(20))))
+                                    .terms(t -> t.field("brandName.keyword").size(20))))
+                            .aggregations("category_filter", Aggregation.of(a -> a
+                                    .terms(t -> t.field("categoryIds").size(50))))
                             .aggregations("price_stats", Aggregation.of(a -> a
                                     .stats(st -> st.field("price")))),
                     ProductDocument.class);
 
             if (response.aggregations() != null) {
+                // 品牌聚合
                 var brandAgg = response.aggregations().get("brand_filter");
                 if (brandAgg != null) {
                     List<Map<String, Object>> brandFilters = brandAgg.sterms().buckets().array().stream()
@@ -537,6 +556,49 @@ public class ProductSearchService {
                     filters.put("brands", brandFilters);
                 }
 
+                // 分类聚合：只返回当前分类的直接子分类
+                var categoryAgg = response.aggregations().get("category_filter");
+                if (categoryAgg != null) {
+                    List<Long> subCategoryIds = categoryAgg.lterms().buckets().array().stream()
+                            .map(b -> b.key())
+                            .collect(Collectors.toList());
+                    
+                    if (!subCategoryIds.isEmpty()) {
+                        List<ProductCategory> subCategories = categoryMapper.selectBatchIds(subCategoryIds);
+                        // 过滤出当前分类的直接子分类
+                        List<Map<String, Object>> categoryFilters = subCategoryIds.stream()
+                                .map(id -> {
+                                    ProductCategory cat = subCategories.stream()
+                                            .filter(c -> c.getId().equals(id))
+                                            .findFirst()
+                                            .orElse(null);
+                                    if (cat == null) return null;
+                                    // 如果传了 categoryId，只返回其子分类；否则返回一级分类
+                                    if (categoryId != null && !Objects.equals(cat.getParentId(), categoryId)) {
+                                        return null;
+                                    }
+                                    if (categoryId == null && cat.getParentId() != 0) {
+                                        return null;
+                                    }
+                                    Map<String, Object> item = new HashMap<>();
+                                    item.put("id", cat.getId());
+                                    item.put("name", cat.getCategoryName());
+                                    // 从聚合结果中找到对应 count
+                                    long count = categoryAgg.lterms().buckets().array().stream()
+                                            .filter(b -> b.key() == cat.getId())
+                                            .findFirst()
+                                            .map(b -> b.docCount())
+                                            .orElse(0L);
+                                    item.put("count", count);
+                                    return item;
+                                })
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toList());
+                        filters.put("categories", categoryFilters);
+                    }
+                }
+
+                // 价格聚合
                 var priceAgg = response.aggregations().get("price_stats");
                 if (priceAgg != null) {
                     List<Map<String, Object>> priceRanges = new ArrayList<>();
@@ -574,18 +636,18 @@ public class ProductSearchService {
     private ProductDocument buildDocumentFromProduct(Product p, Map<Long, String> categoryNameMap,
                                                       Map<Long, Long> parentCategoryMap,
                                                       Map<Long, String> brandNameMap,
-                                                      Map<Long, Integer> stockMap) {
+                                                      Map<Long, Integer> stockMap,
+                                                      Map<Long, List<Long>> categoryAncestorsCache) {
         ProductDocument doc = new ProductDocument();
         doc.setId(p.getId());
         doc.setProductName(p.getProductName());
         doc.setCategoryId(p.getCategoryId());
         doc.setCategoryName(categoryNameMap.get(p.getCategoryId()));
-        doc.setCategoryNameSearch(categoryNameMap.get(p.getCategoryId()));
+        doc.setCategoryIds(categoryAncestorsCache.getOrDefault(p.getCategoryId(), List.of(p.getCategoryId())));
         doc.setParentCategoryId(parentCategoryMap.get(p.getCategoryId()));
         doc.setBrandId(p.getBrandId());
         String brandName = p.getBrandId() != null ? brandNameMap.get(p.getBrandId()) : null;
         doc.setBrandName(brandName);
-        doc.setBrandNameSearch(brandName);
         doc.setPrice(p.getPrice());
         doc.setOriginalPrice(p.getOriginalPrice());
         doc.setDescription(p.getDescription());
@@ -606,6 +668,17 @@ public class ProductSearchService {
         }
         doc.setSuggest(Map.of("input", suggestInputs));
         return doc;
+    }
+
+    private List<Long> buildCategoryAncestors(Long categoryId, Map<Long, Long> parentCategoryMap) {
+        List<Long> ancestors = new ArrayList<>();
+        ancestors.add(categoryId);
+        Long current = parentCategoryMap.get(categoryId);
+        while (current != null && current != 0) {
+            ancestors.add(current);
+            current = parentCategoryMap.get(current);
+        }
+        return ancestors;
     }
 
     private ProductDocument buildDocumentSingle(Product p) {
@@ -631,16 +704,24 @@ public class ProductSearchService {
             ProductCategory cat = categoryMapper.selectById(p.getCategoryId());
             if (cat != null) {
                 doc.setCategoryName(cat.getCategoryName());
-                doc.setCategoryNameSearch(cat.getCategoryName());
                 doc.setParentCategoryId(cat.getParentId());
                 suggestInputs.add(cat.getCategoryName());
+                // 构建祖先链
+                List<Long> ancestors = new ArrayList<>();
+                ancestors.add(cat.getId());
+                Long current = cat.getParentId();
+                while (current != null && current != 0) {
+                    ancestors.add(current);
+                    ProductCategory parent = categoryMapper.selectById(current);
+                    current = parent != null ? parent.getParentId() : null;
+                }
+                doc.setCategoryIds(ancestors);
             }
         }
         if (p.getBrandId() != null) {
             Brand brand = brandMapper.selectById(p.getBrandId());
             if (brand != null) {
                 doc.setBrandName(brand.getBrandName());
-                doc.setBrandNameSearch(brand.getBrandName());
                 suggestInputs.add(brand.getBrandName());
             }
         }

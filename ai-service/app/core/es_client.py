@@ -1,9 +1,9 @@
 """Elasticsearch REST 客户端（httpx 封装，不引入 elasticsearch-py 依赖）。
 
-索引职责划分：
-- mall_product：商品数据，Java 侧（product-service 启动时）建索引并同步，本服务只读
-- mall_faq_v3：FAQ 知识库 v3（条目化：question + similar_questions + answer），
-  本服务全权维护（建索引 + embedding + bulk 导入 + alias 切换）
+仅负责 FAQ 知识库：mall_faq_v3（条目化：question + similar_questions + answer），
+本服务全权维护（建索引 + embedding + bulk 导入 + alias 切换）。
+商品数据检索统一走 product-service 内部接口（app/tools/product_tools.py），
+本服务不直连 mall_product 索引。
 
 FAQ v3 检索策略（设计文档 §13.3）：ES 8.x 原生 RRF 融合——
 BM25(question) + BM25(similar_questions) + kNN(question_vector) 合并为一次
@@ -21,7 +21,6 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-PRODUCT_INDEX = "mall_product"
 FAQ_INDEX_V3 = "mall_faq_v3"
 FAQ_ALIAS = "mall_faq"  # 对外检索统一走 alias，重建索引后原子切换
 
@@ -229,64 +228,3 @@ async def search_faq_v3(query: str, query_vector: list[float],
     _absorb(s_resp.json())
 
     return sorted(fused.values(), key=lambda x: x["score"], reverse=True)[:top_k]
-
-
-# ---------------- 商品检索（自 v2 保留） ----------------
-
-def _product_hit(source: dict) -> dict:
-    return {
-        "id": source.get("id"),
-        "name": source.get("productName", ""),
-        "price": source.get("price"),
-        "original_price": source.get("originalPrice"),
-        "main_image": source.get("mainImage", ""),
-        "sales": source.get("sales", 0),
-        "total_stock": source.get("totalStock", 0),
-        "brand_name": source.get("brandName", ""),
-        "category_name": source.get("categoryName", ""),
-    }
-
-
-async def search_products_by_ids(product_ids: list[int]) -> list[dict]:
-    """按商品ID直查。"""
-    if not product_ids:
-        return []
-    body = {
-        "size": len(product_ids),
-        "query": {
-            "bool": {
-                "filter": [
-                    {"terms": {"id": product_ids}},
-                    {"term": {"status": 1}},
-                ]
-            }
-        },
-    }
-    resp = await _request("POST", f"/{PRODUCT_INDEX}/_search", body=body)
-    hits = resp.json().get("hits", {}).get("hits", [])
-    return [_product_hit(h.get("_source") or {}) for h in hits]
-
-
-async def search_products_by_keyword(keywords: str, top_n: int = 5) -> list[dict]:
-    """关键词 BM25 搜索上架商品，相关度优先、销量次之。"""
-    body = {
-        "size": top_n,
-        "query": {
-            "bool": {
-                "must": [
-                    {
-                        "multi_match": {
-                            "query": keywords,
-                            "fields": ["productName^3", "brandNameSearch^2",
-                                       "categoryNameSearch", "description"],
-                        }
-                    }
-                ],
-                "filter": [{"term": {"status": 1}}],
-            }
-        },
-        "sort": [{"_score": {"order": "desc"}}, {"sales": {"order": "desc"}}],
-    }
-    resp = await _request("POST", f"/{PRODUCT_INDEX}/_search", body=body)
-    hits = resp.json().get("hits", {}).get("hits", [])
-    return [_product_hit(h.get("_source") or {}) for h in hits]

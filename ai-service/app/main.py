@@ -49,6 +49,8 @@ async def lifespan(app: FastAPI):
     try:
         # checkpointer：Redis 优先，失败自动降级 memory（不阻断启动）
         checkpointer = await init_checkpointer()
+        # 供"清空会话"端点联动删除 thread checkpoint
+        app.state.checkpointer = checkpointer
 
         # 图装配属后续任务（app/graph/builder.py 未就绪时降级为 not_assembled）
         try:

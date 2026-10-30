@@ -178,11 +178,11 @@ public class ProductController {
     }
 
     @PostMapping("/es/sync")
-    @Operation(summary = "同步商品数据到ES")
+    @Operation(summary = "重建商品ES索引")
     @SaCheckPermission("product:edit")
     public Result<String> syncToElasticsearch() {
-        productSearchService.syncAllProducts();
-        return Result.success("同步完成");
+        productSearchService.rebuildAllProducts();
+        return Result.success("索引重建完成");
     }
 
     @PostMapping("/stock/sync")

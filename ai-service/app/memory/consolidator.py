@@ -6,8 +6,11 @@
 相对 v2 core/memory_consolidator.py 的核心改造：
 - 游标从进程内 dict 改存 Redis（`memcur:{u}:{s}`），多实例部署安全、进程重启后可延续
 - 防并发锁同样存 Redis（`memlock:{u}:{s}`，NX EX 60），多实例只有一个能触发整理
-- 计数方式：用 `LLEN chat:{u}:{s}`（列表当前长度）与游标求差，无需调用方传新增条数，
-  为实现最简者（调用方只需在写完历史后调 maybe_consolidate 即可）
+- 计数方式：用单调序号 `msgseq:{u}:{s}`（history.add_message 每写一条 INCR）与游标求差。
+  不能再用 `LLEN`——历史列表会被 LTRIM 封顶在 MEMORY_MAX_TURNS*2 条，
+  长度饱和后 LLEN 不再增长，游标一旦追平就永远不会再触发整理
+- 偏好写入改为追加式原子条目（profile.add_preferences），旧值不被覆盖，
+  由读取侧的"时间衰减 + 相关性"排序决定谁进入 prompt
 """
 import asyncio
 import logging
@@ -66,7 +69,7 @@ def _extract_llm() -> ChatOpenAI:
 
 
 async def maybe_consolidate(user_id: str, session_id: str) -> None:
-    """新增消息数（LLEN - 游标）达到阈值时，在后台整理记忆（不阻塞调用方）。
+    """新增消息数（单调序号 - 游标）达到阈值时，在后台整理记忆（不阻塞调用方）。
 
     游标/锁均在 Redis，多实例安全：
     - 抢不到 memlock 说明其他实例正在整理，直接返回
@@ -80,16 +83,15 @@ async def maybe_consolidate(user_id: str, session_id: str) -> None:
         redis = get_redis()
         cur_key = f"memcur:{user_id}:{session_id}"
 
-        total = await redis.llen(f"chat:{user_id}:{session_id}")
+        # 单调序号：不受 LTRIM 封顶影响；老会话没有 msgseq 时用当前长度兜底
+        total = int(await redis.get(f"msgseq:{user_id}:{session_id}") or 0)
+        if total <= 0:
+            total = await redis.llen(f"chat:{user_id}:{session_id}")
         try:
             last = int(await redis.get(cur_key) or 0)
         except (TypeError, ValueError):
             last = 0
         diff = total - last
-        if diff < 0:
-            # 会话被清空或过期后游标失效（游标现持久化在 Redis，比 v2 进程内游标
-            # 多了这种跨重启残留场景），按 0 重新起算
-            diff = total
         if diff < CONSOLIDATE_THRESHOLD:
             return
 
@@ -113,7 +115,7 @@ async def maybe_consolidate(user_id: str, session_id: str) -> None:
 
 
 async def _extract_preferences(user_id: str, session_id: str, lock_key: str) -> None:
-    """后台提取偏好并覆盖写（提取到的字段覆盖旧值，未提及的保留旧值）。"""
+    """后台提取偏好并追加写入（同值刷新时间戳，旧值保留，由读取侧排序取用）。"""
     try:
         msgs = await history.get_history(user_id, session_id)
         recent = msgs[-MAX_MESSAGES_FOR_EXTRACT:]
@@ -138,8 +140,8 @@ async def _extract_preferences(user_id: str, session_id: str, lock_key: str) -> 
         if prefs.other_notes:
             updates["other_notes"] = prefs.other_notes
 
-        for field, value in updates.items():
-            await profile.set_preference(user_id, field, value)
+        # 追加式写入：同值只刷新时间戳，旧值保留；读取侧靠时间衰减决定优先级
+        await profile.add_preferences(user_id, updates)
         logger.info("记忆整理完成 user=%s 更新字段=%s", user_id, list(updates))
     except Exception as e:
         logger.warning("记忆整理失败(忽略): %s", e)

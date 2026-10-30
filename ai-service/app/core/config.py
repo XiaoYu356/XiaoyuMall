@@ -46,6 +46,12 @@ class Settings(BaseSettings):
 
     MEMORY_MAX_TURNS: int = 10
 
+    # ---- v4 图版本开关（对齐 coupon.receive.version 多版本共存约定） ----
+    # v0：单 Agent（create_react_agent 编译图）；
+    # v1：手动 StateGraph 多节点编排——intent 路由 + small_talk/faq_answer/clarify/
+    #     human_transfer 快速通道 + agent⇄tools 完整 ReAct（见 graph/builder.py）
+    AI_GRAPH_VERSION: str = "v0"
+
     # ---- v3.1 检索重排分级（本地 bge-reranker-v2-m3，替代 CRAG LLM 判级） ----
     # 端点 {RERANK_API_BASE}/services/rerank/text-rerank/text-rerank；
     # key 缺省复用 OPENAI_API_KEY（同一百炼账号）

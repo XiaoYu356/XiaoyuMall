@@ -102,8 +102,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, ShoppingCart, Document, User, ArrowDown, Shop, Ticket, MagicStick, Delete } from '@element-plus/icons-vue'
 import { getCartList } from '@/api/cart'
@@ -112,9 +112,15 @@ import { searchSuggest, getSearchHistory, clearSearchHistory } from '@/api/produ
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 
 const searchKeyword = ref('')
+
+// 刷新、前进后退或直接访问带 keyword 的链接时，搜索框回显当前关键词
+watch(() => route.query.keyword, (keyword) => {
+  searchKeyword.value = keyword || ''
+}, { immediate: true })
 const cartCount = ref(0)
 const orderCount = ref(0)
 const showSuggest = ref(false)
@@ -179,10 +185,10 @@ const hideSuggest = () => {
 }
 
 const handleSearch = () => {
-  if (searchKeyword.value) {
-    router.push({ path: '/products', query: { keyword: searchKeyword.value } })
-    fetchHistory()
-  }
+  const keyword = searchKeyword.value.trim()
+  // 关键词为空时也要跳转，清掉 URL 上的 keyword，否则列表会一直停留在上次的搜索结果
+  router.push({ path: '/products', query: keyword ? { keyword } : {} })
+  if (keyword) fetchHistory()
 }
 
 const fetchHistory = async () => {

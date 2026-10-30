@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from app.api.chat import _content_text, _pending_interrupts
 from app.core.security import get_request_user
 from app.memory import get_redis
+from app.memory.consolidator import maybe_consolidate
 from app.memory.history import add_message
 
 logger = structlog.get_logger(__name__)
@@ -127,6 +128,7 @@ async def resume_write_action(request: Request, body: ResumeRequest):
         )
         if text:
             await add_message(str(user_id), body.session_id, "assistant", text)
+        await maybe_consolidate(str(user_id), body.session_id)
     except Exception as e:
         logger.warning("写入会话记忆失败(忽略)", error=str(e))
 

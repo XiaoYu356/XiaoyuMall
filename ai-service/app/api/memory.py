@@ -6,9 +6,10 @@ Java 代理（AIController.java）实际转发并依赖的最小集合：
 - POST /resume（见 app/api/resume.py，Java 在 body 传 user_id）
 另保留 v2 已有的偏好读写端点（GET/POST /memory/preferences），响应结构同 v2。
 """
+import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -16,6 +17,7 @@ from app.memory.history import clear_session, get_history
 from app.memory.profile import get_preferences, set_preference
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class PreferenceRequest(BaseModel):
@@ -73,13 +75,29 @@ async def set_user_preference(body: PreferenceRequest):
 
 
 @router.delete("/memory/session/{user_id}/{session_id}")
-async def clear_conversation_session(user_id: str, session_id: str):
-    """清除指定会话（Java 代理 DELETE /api/v1/ai/memory/session/{userId}/{sessionId} 透传）。"""
+async def clear_conversation_session(
+    user_id: str, session_id: str, request: Request
+):
+    """清除指定会话（历史 + 摘要 + 整理游标 + LangGraph checkpoint）。
+
+    checkpoint 必须一起删：前端"清空会话"后若复用同一 session_id，
+    模型仍能从 checkpoint 读回全部上下文，与"已清空"的界面不一致。
+    """
     try:
         await clear_session(user_id, session_id)
-        return JSONResponse(content={
-            "success": True,
-            "message": "会话已清除",
-        })
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    checkpointer = getattr(request.app.state, "checkpointer", None)
+    if checkpointer is not None and hasattr(checkpointer, "adelete_thread"):
+        thread_id = f"u{user_id}:s{session_id}"
+        try:
+            await checkpointer.adelete_thread(thread_id)
+        except Exception as e:
+            # Redis checkpointer 降级 memory / 版本差异时不阻断清理结果
+            logger.warning("删除会话 checkpoint 失败(忽略): %s", e)
+
+    return JSONResponse(content={
+        "success": True,
+        "message": "会话已清除",
+    })

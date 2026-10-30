@@ -77,12 +77,12 @@
       "gridPos": { "h": 9, "w": 6, "x": 18, "y": 8 }
     },
     {
-      "title": "端到端延迟 P50/P95",
+      "title": "端到端延迟 P50/P95（按路由）",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum(rate(e2e_latency_seconds_bucket[5m])) by (le))", "legendFormat": "P50" },
-        { "expr": "histogram_quantile(0.95, sum(rate(e2e_latency_seconds_bucket[5m])) by (le))", "legendFormat": "P95" }
+        { "expr": "histogram_quantile(0.50, sum(rate(e2e_latency_seconds_bucket[5m])) by (le, route))", "legendFormat": "P50 {{route}}" },
+        { "expr": "histogram_quantile(0.95, sum(rate(e2e_latency_seconds_bucket[5m])) by (le, route))", "legendFormat": "P95 {{route}}" }
       ],
       "fieldConfig": {
         "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{"color":"green","value":null},{"color":"yellow","value":3},{"color":"red","value":10}] } }
@@ -100,6 +100,27 @@
         "defaults": { "thresholds": { "mode": "absolute", "steps": [{"color":"green","value":null},{"color":"red","value":0.1}] } }
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 }
+    },
+    {
+      "title": "意图路由分布（近 5 分钟）",
+      "type": "piechart",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (route) (increase(intent_routes_total[5m]))", "legendFormat": "{{route}}" }
+      ],
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 25 }
+    },
+    {
+      "title": "意图路由耗时 P95（按路由）",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(intent_latency_seconds_bucket[5m])) by (le, route))", "legendFormat": "{{route}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 25 }
     }
   ],
   "schemaVersion": 39,

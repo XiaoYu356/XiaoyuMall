@@ -19,15 +19,13 @@ public class ProductDocument {
 
     private String categoryName;
 
-    private String categoryNameSearch;
+    private List<Long> categoryIds;
 
     private Long parentCategoryId;
 
     private Long brandId;
 
     private String brandName;
-
-    private String brandNameSearch;
 
     private BigDecimal price;
 
